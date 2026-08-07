@@ -1,0 +1,110 @@
+[
+  {
+    "area": "Jadavpur",
+    "risk_baseline": "High",
+    "notes": "Remained waterlogged for roughly three days after a record-setting cloudburst in late September 2025, part of a wider flooding event that caused fatalities across south Kolkata.",
+    "source_note": "2025 monsoon cloudburst reporting"
+  },
+  {
+    "area": "Garia",
+    "risk_baseline": "High",
+    "notes": "Affected by the same September 2025 cloudburst as Jadavpur; multi-day inundation reported in this stretch of south Kolkata.",
+    "source_note": "2025 monsoon cloudburst reporting"
+  },
+  {
+    "area": "Bansdroni",
+    "risk_baseline": "High",
+    "notes": "One of the worst-hit low-lying pockets during the September 2025 record-rainfall event.",
+    "source_note": "2025 monsoon cloudburst reporting"
+  },
+  {
+    "area": "Bijoygarh",
+    "risk_baseline": "High",
+    "notes": "Grouped with Jadavpur/Garia/Bansdroni as a multi-day waterlogging pocket in the 2025 cloudburst.",
+    "source_note": "2025 monsoon cloudburst reporting"
+  },
+  {
+    "area": "Salt Lake Sector V",
+    "risk_baseline": "Moderate",
+    "notes": "A 2026 heavy-downpour event caused significant inundation here despite this being a comparatively newer, better-planned zone; a vehicle was trapped with passengers during the incident.",
+    "source_note": "2026 monsoon downpour reporting"
+  },
+  {
+    "area": "New Town",
+    "risk_baseline": "Moderate",
+    "notes": "Pockets of New Town were inundated in the same 2026 downpour event as Sector V.",
+    "source_note": "2026 monsoon downpour reporting"
+  },
+  {
+    "area": "Lake Gardens",
+    "risk_baseline": "Moderate",
+    "notes": "A recurring low-lying pocket with resident-reported drainage gaps during heavy rainfall events.",
+    "source_note": "Local reporting on recurring heavy-rain events"
+  },
+  {
+    "area": "College Street",
+    "risk_baseline": "Moderate",
+    "notes": "Part of a north/central Kolkata cluster (with Thanthania, Amherst Street, Ganesh Chandra Avenue) that has flooded during heavy showers, though municipal desilting work has measurably improved drainage speed here in recent years.",
+    "source_note": "North Kolkata heavy-rain reporting"
+  },
+  {
+    "area": "Thanthania",
+    "risk_baseline": "Moderate",
+    "notes": "Same north Kolkata cluster as College Street; historically one of the higher rainfall-accumulation points in the area.",
+    "source_note": "North Kolkata heavy-rain reporting"
+  },
+  {
+    "area": "Topsia",
+    "risk_baseline": "High",
+    "notes": "Commonly cited low-lying pocket with recurring monsoon waterlogging in general Kolkata civic reporting.",
+    "source_note": "General/commonly-cited — recommend verifying against current KMC advisories"
+  },
+  {
+    "area": "Ultadanga",
+    "risk_baseline": "High",
+    "notes": "Commonly cited drainage-bottleneck zone near canal infrastructure.",
+    "source_note": "General/commonly-cited — recommend verifying against current KMC advisories"
+  },
+  {
+    "area": "Behala",
+    "risk_baseline": "Moderate",
+    "notes": "Commonly cited pocket with localized pooling during heavy rain.",
+    "source_note": "General/commonly-cited — recommend verifying against current KMC advisories"
+  },
+  {
+    "area": "Park Circus",
+    "risk_baseline": "Moderate",
+    "notes": "Traffic-choke point that worsens noticeably during waterlogging events.",
+    "source_note": "General/commonly-cited — recommend verifying against current KMC advisories"
+  },
+  {
+    "area": "Kalighat",
+    "risk_baseline": "Moderate",
+    "notes": "Riverside, comparatively low-elevation area.",
+    "source_note": "General/commonly-cited — recommend verifying against current KMC advisories"
+  },
+  {
+    "area": "Tollygunge",
+    "risk_baseline": "Moderate",
+    "notes": "Canal-adjacent area with a history of flooding during sustained heavy rain.",
+    "source_note": "General/commonly-cited — recommend verifying against current KMC advisories"
+  },
+  {
+    "area": "Golf Green",
+    "risk_baseline": "Moderate",
+    "notes": "Known low-lying residential pocket.",
+    "source_note": "General/commonly-cited — recommend verifying against current KMC advisories"
+  },
+  {
+    "area": "Park Street",
+    "risk_baseline": "Low",
+    "notes": "Generally clears faster than surrounding areas after rainfall.",
+    "source_note": "General/commonly-cited"
+  },
+  {
+    "area": "Esplanade",
+    "risk_baseline": "Low",
+    "notes": "Central and generally well-drained relative to outer low-lying pockets.",
+    "source_note": "General/commonly-cited"
+  }
+]
