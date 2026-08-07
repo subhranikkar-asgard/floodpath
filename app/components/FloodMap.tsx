@@ -166,7 +166,6 @@ export default function FloodMap({ userLocation, destination, routes, activeInde
         mapRef.current = null;
       }
     };
-    };
   }, [destination, routes, activeIndex, routeStatus, isNavigating, onSelectRoute]);
 
   // Separate effect specifically for the live user location marker to avoid redrawing everything
