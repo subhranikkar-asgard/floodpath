@@ -4,53 +4,78 @@ interface Props {
   result: AssessmentResult;
 }
 
+/* ── Badge config ──────────────────────────────────────────────────────────── */
+const BADGE: Record<string, { cls: string; dot: string; label: string }> = {
+  Low:     { cls: "badge badge-low",    dot: "badge-dot badge-dot-low",    label: "Low Risk" },
+  Moderate:{ cls: "badge badge-mod",    dot: "badge-dot badge-dot-mod",    label: "Moderate Risk" },
+  High:    { cls: "badge badge-high",   dot: "badge-dot badge-dot-high",   label: "High Risk" },
+  Severe:  { cls: "badge badge-severe", dot: "badge-dot badge-dot-severe", label: "Severe Risk" },
+  Unknown: { cls: "badge badge-unk",    dot: "badge-dot badge-dot-unk",    label: "Unknown" },
+};
 
-const RISK_CONFIG: Record<string, { bg: string; text: string; dot: string; label: string }> = {
-  Low:     { bg: "bg-emerald-100", text: "text-emerald-800", dot: "bg-emerald-500", label: "Low Risk" },
-  Moderate:{ bg: "bg-amber-100",   text: "text-amber-800",   dot: "bg-amber-500",   label: "Moderate Risk" },
-  High:    { bg: "bg-red-100",     text: "text-red-800",     dot: "bg-red-500",     label: "High Risk" },
-  Severe:  { bg: "bg-red-200",     text: "text-red-900",     dot: "bg-red-700",     label: "Severe Risk" },
-  Unknown: { bg: "bg-slate-100",   text: "text-slate-600",   dot: "bg-slate-400",   label: "Unknown" },
+const GLOW: Record<string, string> = {
+  Low:     "risk-glow-low",
+  Moderate:"risk-glow-mod",
+  High:    "risk-glow-high",
+  Severe:  "risk-glow-severe",
+  Unknown: "risk-glow-unk",
 };
 
 function RiskBadge({ level }: { level: string | null | undefined }) {
-  const cfg = RISK_CONFIG[level ?? "Unknown"] ?? RISK_CONFIG.Unknown;
+  const cfg = BADGE[level ?? "Unknown"] ?? BADGE.Unknown;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${cfg.bg} ${cfg.text}`}>
-      <span className={`h-2 w-2 rounded-full ${cfg.dot}`} />
+    <span className={cfg.cls}>
+      <span className={cfg.dot} />
       {cfg.label}
     </span>
   );
 }
 
-const CONFIDENCE_LABEL: Record<string, string> = {
+const CONF_LABEL: Record<string, string> = {
   high: "High confidence",
   medium: "Medium confidence",
   low: "Low confidence",
 };
 
-export default function RiskCard({ result }: Props) {
-  const { intent, overall_risk_level, location_breakdown, rationale,
-          alternative_suggestion, clarifying_question, confidence,
-          origin, destination } = result;
+const CONF_COLOR: Record<string, string> = {
+  high:   "rgba(34,197,94,0.7)",
+  medium: "rgba(251,191,36,0.7)",
+  low:    "rgba(148,163,184,0.6)",
+};
 
+/* ── Area dot color ───────────────────────────────────────────────────────── */
+const DOT_COLOR: Record<string, string> = {
+  Low:     "#22c55e",
+  Moderate:"#fbbf24",
+  High:    "#ef4444",
+  Severe:  "#dc2626",
+  Unknown: "#94a3b8",
+};
+
+export default function RiskCard({ result }: Props) {
+  const {
+    intent, overall_risk_level, location_breakdown,
+    rationale, alternative_suggestion, clarifying_question,
+    confidence, origin, destination,
+  } = result;
+
+  const glowClass = GLOW[overall_risk_level ?? "Unknown"] ?? GLOW.Unknown;
+
+  /* ── Unclear / off-topic ─────────────────────────────────────────────────── */
   if (intent === "unclear") {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">🤔</span>
+      <div className={`glass animate-in ${glowClass}`} style={{ padding: "28px 24px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "14px" }}>
+          <span style={{ fontSize: "28px", lineHeight: 1, flexShrink: 0 }}>🤔</span>
           <div>
-            <h2 className="text-base font-semibold text-slate-700 mb-1">Couldn't understand that query</h2>
-            {clarifying_question ? (
-              <p className="text-sm text-slate-600">{clarifying_question}</p>
-            ) : (
-              <p className="text-sm text-slate-600">
-                Try asking about a specific area or route in Kolkata, e.g.{" "}
-                <em>"Is Jadavpur safe to travel through?"</em>
-              </p>
-            )}
-            <p className="mt-2 text-xs text-slate-400">
-              Rationale: {rationale}
+            <p style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "15px", marginBottom: "8px" }}>
+              Couldn&apos;t understand that query
+            </p>
+            <p style={{ color: "var(--text-secondary)", fontSize: "14px", lineHeight: 1.6 }}>
+              {clarifying_question ?? "Try asking about a specific area or route in Kolkata — e.g. \"Is Jadavpur safe?\""}
+            </p>
+            <p style={{ marginTop: "10px", fontSize: "12px", color: "var(--text-muted)" }}>
+              {rationale}
             </p>
           </div>
         </div>
@@ -58,80 +83,121 @@ export default function RiskCard({ result }: Props) {
     );
   }
 
+  /* ── Main result card ────────────────────────────────────────────────────── */
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className={`glass animate-in ${glowClass}`}>
+
       {/* Header */}
-      <div className="border-b border-slate-100 px-6 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <div style={{ padding: "20px 24px 16px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             <RiskBadge level={overall_risk_level} />
-            <span className="ml-3 text-xs text-slate-400">{CONFIDENCE_LABEL[confidence]}</span>
+            <span style={{ fontSize: "11px", color: CONF_COLOR[confidence] ?? "var(--text-muted)", fontWeight: 500 }}>
+              {CONF_LABEL[confidence]}
+            </span>
           </div>
           {(origin || destination) && (
-            <p className="text-xs text-slate-500 font-mono">
+            <p style={{
+              fontSize: "11px",
+              color: "var(--text-muted)",
+              fontFamily: "monospace",
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: "6px",
+              padding: "3px 8px",
+            }}>
               {[origin, destination].filter(Boolean).join(" → ")}
             </p>
           )}
         </div>
       </div>
 
+      <div className="glass-divider" />
+
       {/* Rationale */}
-      <div className="px-6 py-4 border-b border-slate-100">
-        <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">Assessment</h3>
-        <p className="text-[15px] text-slate-700 leading-relaxed">{rationale}</p>
+      <div style={{ padding: "18px 24px" }}>
+        <p className="label-caps" style={{ marginBottom: "8px" }}>Assessment</p>
+        <p style={{ fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.7 }}>
+          {rationale}
+        </p>
       </div>
 
       {/* Location breakdown */}
       {location_breakdown.length > 0 && (
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">Area Breakdown</h3>
-          <ul className="space-y-3">
-            {location_breakdown.map((item, i) => {
-              const cfg = RISK_CONFIG[item.risk_level] ?? RISK_CONFIG.Unknown;
-              return (
-                <li key={i} className="flex items-start gap-3">
-                  <span className={`mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full ${cfg.dot}`} />
-                  <div>
-                    <span className="font-semibold text-slate-800 text-sm">{item.area}</span>
-                    <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.text}`}>
-                      {item.risk_level}
-                    </span>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.reason}</p>
+        <>
+          <div className="glass-divider" />
+          <div style={{ padding: "18px 24px" }}>
+            <p className="label-caps" style={{ marginBottom: "14px" }}>Area Breakdown</p>
+            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
+              {location_breakdown.map((item, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                  <span style={{
+                    width: "9px", height: "9px",
+                    borderRadius: "50%",
+                    background: DOT_COLOR[item.risk_level] ?? DOT_COLOR.Unknown,
+                    flexShrink: 0,
+                    marginTop: "5px",
+                    boxShadow: `0 0 8px ${DOT_COLOR[item.risk_level] ?? DOT_COLOR.Unknown}60`,
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "14px" }}>
+                        {item.area}
+                      </span>
+                      <RiskBadge level={item.risk_level} />
+                    </div>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.55 }}>
+                      {item.reason}
+                    </p>
                   </div>
                 </li>
-              );
-            })}
-          </ul>
-        </div>
+              ))}
+            </ul>
+          </div>
+        </>
       )}
 
       {/* Alternative suggestion */}
       {alternative_suggestion && (
-        <div className="px-6 py-4 border-b border-slate-100 bg-blue-50">
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-blue-500 mb-2 flex items-center gap-1.5">
-            <span>↪</span> Suggested Alternative
-          </h3>
-          <p className="text-sm text-blue-800 leading-relaxed">{alternative_suggestion}</p>
-        </div>
+        <>
+          <div className="glass-divider" />
+          <div style={{ padding: "16px 24px" }}>
+            <div className="alt-callout">
+              <p className="label-caps" style={{ marginBottom: "6px", color: "rgba(139,92,246,0.7)" }}>
+                ↪ Suggested Alternative
+              </p>
+              <p style={{ fontSize: "13px", color: "rgba(196,181,253,0.9)", lineHeight: 1.65 }}>
+                {alternative_suggestion}
+              </p>
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Unknown area notice */}
+      {/* Unknown-area notice */}
       {location_breakdown.some(l => l.risk_level === "Unknown") && (
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-100">
-          <p className="text-xs text-slate-500 flex items-start gap-2">
-            <span className="text-slate-400 mt-0.5">ℹ</span>
-            <span>
-              Areas marked <strong>Unknown</strong> are not in our verified dataset.
-              FloodPath refuses to guess risk levels for unverified locations — that's intentional.
-            </span>
-          </p>
-        </div>
+        <>
+          <div className="glass-divider" />
+          <div style={{ padding: "14px 24px" }}>
+            <div className="unknown-info">
+              <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.6, display: "flex", gap: "8px" }}>
+                <span style={{ flexShrink: 0 }}>ℹ</span>
+                <span>
+                  Areas marked <strong style={{ color: "var(--risk-unk-text)" }}>Unknown</strong> are not
+                  in our verified dataset. FloodPath refuses to guess — that&apos;s intentional and is what
+                  makes it trustworthy for safety decisions.
+                </span>
+              </p>
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Footer confidence */}
-      <div className="px-6 py-3 bg-slate-50">
-        <p className="text-[11px] text-slate-400">
-          Based on historical baseline data · Not real-time · Verify with KMC before travel in active rainfall
+      {/* Card footer */}
+      <div className="glass-divider" />
+      <div style={{ padding: "12px 24px" }}>
+        <p style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+          Historical baseline · Not real-time · Verify with KMC before travel in active rainfall
         </p>
       </div>
     </div>

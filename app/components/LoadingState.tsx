@@ -1,25 +1,39 @@
 export default function LoadingState() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 animate-pulse">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="h-7 w-24 rounded-full bg-slate-200" />
-        <div className="h-4 w-40 rounded bg-slate-200" />
+    <div className="glass animate-in" style={{ padding: "28px 24px" }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+        <div className="skeleton" style={{ height: "28px", width: "110px", borderRadius: "100px" }} />
+        <div className="skeleton" style={{ height: "14px", width: "80px" }} />
       </div>
-      <div className="space-y-2 mb-5">
-        <div className="h-4 w-full rounded bg-slate-200" />
-        <div className="h-4 w-5/6 rounded bg-slate-200" />
-        <div className="h-4 w-4/6 rounded bg-slate-200" />
+
+      {/* Rationale lines */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px" }}>
+        <div className="skeleton" style={{ height: "14px", width: "100%" }} />
+        <div className="skeleton" style={{ height: "14px", width: "88%" }} />
+        <div className="skeleton" style={{ height: "14px", width: "70%" }} />
       </div>
-      <div className="space-y-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="flex items-center gap-3">
-            <div className="h-5 w-5 rounded-full bg-slate-200 flex-shrink-0" />
-            <div className="h-4 flex-1 rounded bg-slate-200" />
-          </div>
-        ))}
-      </div>
-      <p className="mt-5 text-xs text-slate-400 text-center">
-        Assessing flood risk against grounding data…
+
+      <div className="glass-divider" style={{ marginBottom: "20px" }} />
+
+      {/* Breakdown items */}
+      {[1, 2].map((i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+          <div className="skeleton" style={{ width: "10px", height: "10px", borderRadius: "50%", flexShrink: 0 }} />
+          <div className="skeleton" style={{ height: "13px", flex: 1 }} />
+          <div className="skeleton" style={{ height: "20px", width: "64px", borderRadius: "100px", flexShrink: 0 }} />
+        </div>
+      ))}
+
+      {/* Footer */}
+      <p style={{
+        marginTop: "20px",
+        fontSize: "11px",
+        color: "var(--text-muted)",
+        textAlign: "center",
+        letterSpacing: "0.03em",
+      }}>
+        Matching against Kolkata flood zone data…
       </p>
     </div>
   );

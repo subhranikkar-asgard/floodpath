@@ -8,7 +8,7 @@ interface Props {
 
 export default function QueryInput({ onSubmit, loading }: Props) {
   const [value, setValue] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const ref = useRef<HTMLTextAreaElement>(null);
 
   function handleSubmit() {
     const q = value.trim();
@@ -24,39 +24,76 @@ export default function QueryInput({ onSubmit, loading }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="relative">
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ position: "relative" }}>
         <textarea
-          ref={inputRef}
+          ref={ref}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={loading}
           rows={3}
           placeholder="e.g. Going from Ultadanga to Park Street this evening, is it safe?"
-          className="w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 text-[15px] placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-50 disabled:cursor-not-allowed leading-relaxed"
+          className="glass-input"
           aria-label="Route or area query"
+          id="query-input"
         />
         {value.length > 0 && !loading && (
           <button
             onClick={() => setValue("")}
-            className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 text-xs"
             aria-label="Clear input"
+            style={{
+              position: "absolute",
+              top: "12px",
+              right: "12px",
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "6px",
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "11px",
+              padding: "2px 7px",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
           >
             ✕
           </button>
         )}
       </div>
+
       <button
         onClick={handleSubmit}
         disabled={!value.trim() || loading}
-        className="w-full rounded-xl bg-blue-700 px-6 py-3 text-[15px] font-semibold text-white shadow-sm transition-all hover:bg-blue-800 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+        className="btn-primary"
+        id="submit-btn"
       >
-        {loading ? "Assessing…" : "Check Route Safety →"}
+        {loading ? (
+          <>
+            <span style={{ animation: "spin 0.9s linear infinite", display: "inline-block" }}>⟳</span>
+            Assessing risk…
+          </>
+        ) : (
+          <>
+            <span>Check Route Safety</span>
+            <span>→</span>
+          </>
+        )}
       </button>
-      <p className="text-xs text-slate-400 text-center">
-        Press <kbd className="rounded border border-slate-200 px-1 py-0.5 font-mono text-[10px]">Enter</kbd> to submit
+
+      <p style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "center" }}>
+        Press <kbd style={{
+          background: "rgba(255,255,255,0.07)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: "4px",
+          padding: "1px 5px",
+          fontSize: "10px",
+          fontFamily: "monospace",
+        }}>Enter</kbd> to submit
       </p>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
