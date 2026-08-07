@@ -9,13 +9,15 @@ interface Props {
   routes:       RouteResult[];
   activeIndex:  number;
   routeStatus:  "safe" | "all_risky" | null;
+  isNavigating: boolean;
   onSelectRoute?: (index: number) => void;
 }
 
-export default function FloodMap({ userLocation, destination, routes, activeIndex, routeStatus, onSelectRoute }: Props) {
+export default function FloodMap({ userLocation, destination, routes, activeIndex, routeStatus, isNavigating, onSelectRoute }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<ReturnType<typeof import("leaflet")["map"]> | null>(null);
   const layersRef    = useRef<unknown[]>([]);
+  const userMarkerRef = useRef<unknown>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current) return;
@@ -79,21 +81,6 @@ export default function FloodMap({ userLocation, destination, routes, activeInde
         l => !(l as { _isRoute?: boolean })._isRoute && !(l as { _isMarker?: boolean })._isMarker
       );
 
-      // User location marker
-      if (userLocation) {
-        const icon = L.divIcon({
-          className: "",
-          html: `<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 0 4px rgba(59,130,246,0.3)"></div>`,
-          iconSize:   [16, 16],
-          iconAnchor: [8, 8],
-        });
-        const m = L.marker([userLocation.lat, userLocation.lon], { icon });
-        (m as unknown as { _isMarker: boolean })._isMarker = true;
-        m.addTo(map).bindPopup("📍 Your location");
-        layersRef.current.push(m);
-        map.setView([userLocation.lat, userLocation.lon], 13, { animate: true });
-      }
-
       // Destination marker
       if (destination) {
         const icon = L.divIcon({
@@ -132,7 +119,9 @@ export default function FloodMap({ userLocation, destination, routes, activeInde
           line.addTo(map);
           layersRef.current.push(line);
           
-          map.fitBounds(L.latLngBounds(route.coords), { padding: [60, 60] });
+          if (!isNavigating) {
+            map.fitBounds(L.latLngBounds(route.coords), { padding: [60, 60] });
+          }
         } else {
           const line = L.polyline(route.coords, { color, weight: 5, opacity: 0.7, dashArray: "5, 8" });
           (line as unknown as { _isRoute: boolean })._isRoute = true;
@@ -177,7 +166,48 @@ export default function FloodMap({ userLocation, destination, routes, activeInde
         mapRef.current = null;
       }
     };
-  }, [userLocation, destination, routes, activeIndex, routeStatus, onSelectRoute]);
+    };
+  }, [destination, routes, activeIndex, routeStatus, isNavigating, onSelectRoute]);
+
+  // Separate effect specifically for the live user location marker to avoid redrawing everything
+  useEffect(() => {
+    if (!mapRef.current || !userLocation) return;
+    
+    import("leaflet").then((L) => {
+      const map = mapRef.current!;
+
+      if (!userMarkerRef.current) {
+        // Create it the first time
+        const icon = L.divIcon({
+          className: "",
+          html: `
+            <div style="position:relative;width:20px;height:20px;">
+              <div style="position:absolute;inset:0;border-radius:50%;background:rgba(59,130,246,0.3);animation:pulse 2s infinite"></div>
+              <div style="position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#3b82f6;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>
+            </div>
+            <style>@keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }</style>
+          `,
+          iconSize:   [20, 20],
+          iconAnchor: [10, 10],
+        });
+        const m = L.marker([userLocation.lat, userLocation.lon], { icon });
+        m.addTo(map);
+        userMarkerRef.current = m;
+      } else {
+        // Just update its coordinates smoothly
+        const m = userMarkerRef.current as any;
+        m.setLatLng([userLocation.lat, userLocation.lon]);
+      }
+
+      // If we are navigating, keep the map centered on the user
+      if (isNavigating) {
+        map.setView([userLocation.lat, userLocation.lon], 16, { animate: true });
+      } else if (!destination && routes.length === 0) {
+        // Only set view to user on load if no routes are drawn
+        map.setView([userLocation.lat, userLocation.lon], 13, { animate: true });
+      }
+    });
+  }, [userLocation, isNavigating, destination, routes.length]);
 
   return (
     <>

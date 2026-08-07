@@ -261,6 +261,7 @@ export default function Home() {
                 routes={routes}
                 activeIndex={activeIndex}
                 routeStatus={routeStatus}
+                isNavigating={isNavigating}
                 onSelectRoute={setActiveIndex}
               />
             </div>
