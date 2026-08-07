@@ -67,7 +67,7 @@ export async function fetchAlternativeRoutes(
   if (!json.routes?.length) throw new Error("No routes found");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return json.routes.map((r: any) => {
+  const parsedRoutes = json.routes.map((r: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const steps: RouteStep[] = r.legs[0]?.steps?.map((step: any) => ({
       instruction: `${step.maneuver.type} ${step.maneuver.modifier ? step.maneuver.modifier : ""} ${step.name ? "onto " + step.name : ""}`.trim(),
