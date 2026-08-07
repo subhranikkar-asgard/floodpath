@@ -294,26 +294,32 @@ export default function Home() {
 
             {/* Active route banner OR Navigation Overlay */}
             {isNavigating && activeRoute ? (
-              <div style={{
-                position:"absolute", top:"16px", left:"50%", transform:"translateX(-50%)",
-                width:"90%", maxWidth:"400px", zIndex:1000,
-                background:"rgba(15,23,42,0.95)", backdropFilter:"blur(24px)",
-                WebkitBackdropFilter:"blur(24px)",
-                border:"1px solid rgba(99,102,241,0.5)", borderRadius:"16px",
-                padding:"16px", boxShadow:"0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)",
-              }}>
+              <div 
+                aria-live="polite" 
+                aria-atomic="true"
+                role="region"
+                aria-label="Turn by Turn Navigation"
+                style={{
+                  position:"absolute", top:"16px", left:"50%", transform:"translateX(-50%)",
+                  width:"90%", maxWidth:"400px", zIndex:1000,
+                  background:"rgba(15,23,42,0.95)", backdropFilter:"blur(24px)",
+                  WebkitBackdropFilter:"blur(24px)",
+                  border:"1px solid rgba(99,102,241,0.5)", borderRadius:"16px",
+                  padding:"16px", boxShadow:"0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)",
+                }}
+              >
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
                   <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>
                     ● Live Navigation
                   </span>
-                  <button onClick={() => setIsNavigating(false)} style={{
+                  <button aria-label="End Navigation" onClick={() => setIsNavigating(false)} style={{
                     background:"rgba(239,68,68,0.15)", color:"#fca5a5", border:"1px solid rgba(239,68,68,0.3)",
                     padding:"4px 10px", borderRadius:"100px", fontSize:"10px", fontWeight:700, cursor:"pointer"
                   }}>END</button>
                 </div>
                 
                 <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
-                  <div style={{ width:"48px", height:"48px", borderRadius:"12px", background:"rgba(99,102,241,0.2)",
+                  <div aria-hidden="true" style={{ width:"48px", height:"48px", borderRadius:"12px", background:"rgba(99,102,241,0.2)",
                     border:"1px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center",
                     fontSize:"24px", flexShrink:0 }}>
                     {activeRoute.steps[currentStepIndex]?.modifier?.includes("left") ? "⬅️" :
@@ -333,11 +339,13 @@ export default function Home() {
                 {/* Manual step controls for hackathon safety */}
                 <div style={{ display:"flex", justifyContent:"space-between", marginTop:"16px", borderTop:"1px solid rgba(255,255,255,0.1)", paddingTop:"12px" }}>
                   <button 
+                    aria-label="Previous Step"
                     disabled={currentStepIndex === 0}
                     onClick={() => setCurrentStepIndex(c => Math.max(0, c - 1))}
                     style={{ padding:"8px 16px", borderRadius:"8px", background:"rgba(255,255,255,0.1)", color:"#fff", fontSize:"12px", border:"none", cursor:"pointer", opacity: currentStepIndex===0 ? 0.3:1 }}
                   >← Prev Step</button>
                   <button 
+                    aria-label="Next Step"
                     disabled={currentStepIndex >= activeRoute.steps.length - 1}
                     onClick={() => setCurrentStepIndex(c => Math.min(activeRoute.steps.length - 1, c + 1))}
                     style={{ padding:"8px 16px", borderRadius:"8px", background:"#4f46e5", color:"#fff", fontSize:"12px", fontWeight:700, border:"none", cursor:"pointer", opacity: currentStepIndex >= activeRoute.steps.length -1 ? 0.3:1 }}

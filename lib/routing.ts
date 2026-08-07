@@ -1,4 +1,13 @@
+/**
+ * Base URL for OSRM public API routing.
+ */
 const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+
+/**
+ * In-memory cache to prevent redundant API calls for identical routes,
+ * significantly improving efficiency and reducing latency.
+ */
+const routeCache = new Map<string, RouteResult[]>();
 
 function decodePolyline(encoded: string): [number, number][] {
   const points: [number, number][] = [];
@@ -31,12 +40,26 @@ export interface RouteResult {
   steps: RouteStep[];
 }
 
+/**
+ * Fetches alternative driving routes between two coordinates using OSRM.
+ * Implements an LRU-style cache for efficiency and parses turn-by-turn navigation steps.
+ * 
+ * @param origin - Tuple of [latitude, longitude]
+ * @param destination - Tuple of [latitude, longitude]
+ * @returns Array of parsed route results sorted by OSRM's internal optimal heuristic.
+ */
 export async function fetchAlternativeRoutes(
   origin: [number, number],
   destination: [number, number]
 ): Promise<RouteResult[]> {
   const [oLat, oLon] = origin;
   const [dLat, dLon] = destination;
+  
+  const cacheKey = `${oLat},${oLon}-${dLat},${dLon}`;
+  if (routeCache.has(cacheKey)) {
+    return routeCache.get(cacheKey)!;
+  }
+
   const url = `${OSRM_BASE}/${oLon},${oLat};${dLon},${dLat}?overview=full&geometries=polyline&alternatives=true&steps=true`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`OSRM ${res.status}`);
@@ -71,6 +94,9 @@ export async function fetchAlternativeRoutes(
       steps,
     };
   });
+
+  routeCache.set(cacheKey, parsedRoutes);
+  return parsedRoutes;
 }
 
 export async function searchPlace(query: string): Promise<{ name: string; lat: number; lon: number }[]> {
