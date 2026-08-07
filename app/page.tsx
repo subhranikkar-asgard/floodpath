@@ -50,7 +50,7 @@ export default function Home() {
 
   /* Map state */
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
-  const [locStatus,    setLocStatus]    = useState<"loading"|"ok"|"denied">("loading");
+  const [locStatus,    setLocStatus]    = useState<"loading"|"ok"|"denied"|"fallback">("loading");
   const [destination,  setDestination]  = useState<{ lat: number; lon: number; name: string } | null>(null);
   
   const [routes,       setRoutes]       = useState<RouteResult[]>([]);
@@ -72,7 +72,13 @@ export default function Home() {
 
   /* ── Geolocation ─────────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!navigator.geolocation) { setLocStatus("denied"); return; }
+    // Default Kolkata fallback if GPS fails (e.g., desktop without GPS or denied permission)
+    const setFallback = () => {
+      setUserLocation({ lat: 22.5726, lon: 88.3639 }); // Central Kolkata (Esplanade)
+      setLocStatus("fallback");
+    };
+
+    if (!navigator.geolocation) { setFallback(); return; }
     
     if (isNavigating) {
       // High-accuracy live tracking during navigation
@@ -81,7 +87,7 @@ export default function Home() {
           setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
           setLocStatus("ok");
         },
-        () => setLocStatus("denied"),
+        () => setFallback(),
         { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
       );
     } else {
@@ -91,7 +97,7 @@ export default function Home() {
           setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
           setLocStatus("ok");
         },
-        () => setLocStatus("denied"),
+        () => setFallback(),
         { timeout: 8000 }
       );
     }
@@ -227,12 +233,12 @@ export default function Home() {
             <div style={{
               padding:"4px 10px", borderRadius:"100px", fontSize:"11px", fontWeight:600,
               display:"flex", alignItems:"center", gap:"5px",
-              background: locStatus==="ok" ? "rgba(34,197,94,0.1)" : locStatus==="loading" ? "rgba(99,102,241,0.1)" : "rgba(239,68,68,0.1)",
-              border:`1px solid ${locStatus==="ok" ? "rgba(34,197,94,0.25)" : locStatus==="loading" ? "rgba(99,102,241,0.25)" : "rgba(239,68,68,0.25)"}`,
-              color: locStatus==="ok" ? "rgba(134,239,172,0.9)" : locStatus==="loading" ? "rgba(165,180,252,0.9)" : "rgba(252,165,165,0.9)",
+              background: locStatus==="ok" ? "rgba(34,197,94,0.1)" : locStatus==="fallback" ? "rgba(249,115,22,0.1)" : locStatus==="loading" ? "rgba(99,102,241,0.1)" : "rgba(239,68,68,0.1)",
+              border:`1px solid ${locStatus==="ok" ? "rgba(34,197,94,0.25)" : locStatus==="fallback" ? "rgba(249,115,22,0.3)" : locStatus==="loading" ? "rgba(99,102,241,0.25)" : "rgba(239,68,68,0.25)"}`,
+              color: locStatus==="ok" ? "rgba(134,239,172,0.9)" : locStatus==="fallback" ? "rgba(253,186,116,0.9)" : locStatus==="loading" ? "rgba(165,180,252,0.9)" : "rgba(252,165,165,0.9)",
             }}>
               <span style={{ width:"6px", height:"6px", borderRadius:"50%", background:"currentColor", display:"inline-block" }} />
-              {locStatus==="ok" ? "Location found" : locStatus==="loading" ? "Locating…" : "Location off"}
+              {locStatus==="ok" ? "Live GPS" : locStatus==="fallback" ? "Simulated GPS" : locStatus==="loading" ? "Locating…" : "Location off"}
             </div>
           </div>
         </header>
