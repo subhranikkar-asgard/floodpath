@@ -15,11 +15,19 @@ function decodePolyline(encoded: string): [number, number][] {
   return points;
 }
 
+export interface RouteStep {
+  instruction: string;
+  distance: number; // meters
+  modifier?: string; // left, right, straight, u-turn, etc.
+  type?: string;     // turn, new name, depart, arrive, etc.
+}
+
 export interface RouteResult {
   coords: [number, number][];
   duration: number;   // minutes
   distance: string;   // km string
   color?: string;
+  steps: RouteStep[];
 }
 
 export async function fetchAlternativeRoutes(
@@ -28,16 +36,29 @@ export async function fetchAlternativeRoutes(
 ): Promise<RouteResult[]> {
   const [oLat, oLon] = origin;
   const [dLat, dLon] = destination;
-  const url = `${OSRM_BASE}/${oLon},${oLat};${dLon},${dLat}?overview=full&geometries=polyline&alternatives=true`;
+  const url = `${OSRM_BASE}/${oLon},${oLat};${dLon},${dLat}?overview=full&geometries=polyline&alternatives=true&steps=true`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`OSRM ${res.status}`);
   const json = await res.json();
   if (!json.routes?.length) throw new Error("No routes found");
-  return json.routes.map((r: { geometry: string; duration: number; distance: number }) => ({
-    coords:   decodePolyline(r.geometry),
-    duration: Math.round(r.duration / 60),
-    distance: (r.distance / 1000).toFixed(1),
-  }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return json.routes.map((r: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const steps: RouteStep[] = r.legs[0]?.steps?.map((step: any) => ({
+      instruction: `${step.maneuver.type} ${step.maneuver.modifier ? step.maneuver.modifier : ""} ${step.name ? "onto " + step.name : ""}`.trim(),
+      distance: Math.round(step.distance),
+      modifier: step.maneuver.modifier,
+      type: step.maneuver.type,
+    })) || [];
+
+    return {
+      coords:   decodePolyline(r.geometry),
+      duration: Math.round(r.duration / 60),
+      distance: (r.distance / 1000).toFixed(1),
+      steps,
+    };
+  });
 }
 
 export async function searchPlace(query: string): Promise<{ name: string; lat: number; lon: number }[]> {

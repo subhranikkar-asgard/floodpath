@@ -6,11 +6,13 @@ import { kolkataFloodZones, RISK_COLORS } from "@/data/flood_zones_geo";
 interface Props {
   userLocation: { lat: number; lon: number } | null;
   destination:  { lat: number; lon: number; name: string } | null;
-  activeRoute:  RouteResult | null;
+  routes:       RouteResult[];
+  activeIndex:  number;
   routeStatus:  "safe" | "all_risky" | null;
+  onSelectRoute?: (index: number) => void;
 }
 
-export default function FloodMap({ userLocation, destination, activeRoute, routeStatus }: Props) {
+export default function FloodMap({ userLocation, destination, routes, activeIndex, routeStatus, onSelectRoute }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<ReturnType<typeof import("leaflet")["map"]> | null>(null);
   const layersRef    = useRef<unknown[]>([]);
@@ -106,8 +108,27 @@ export default function FloodMap({ userLocation, destination, activeRoute, route
         layersRef.current.push(m);
       }
 
-      // Route polyline
-      if (activeRoute?.coords?.length) {
+      // Draw alternative routes first (so they are underneath)
+      routes.forEach((route, idx) => {
+        if (idx === activeIndex) return; // Draw active last
+        
+        // Transparent thick line for click area
+        const clickLine = L.polyline(route.coords, { color: "transparent", weight: 20 });
+        (clickLine as unknown as { _isRoute: boolean })._isRoute = true;
+        clickLine.on("click", () => onSelectRoute && onSelectRoute(idx));
+        clickLine.addTo(map);
+        layersRef.current.push(clickLine);
+
+        // Visible line
+        const line = L.polyline(route.coords, { color: "#64748b", weight: 5, opacity: 0.6, dashArray: "5, 8" });
+        (line as unknown as { _isRoute: boolean })._isRoute = true;
+        line.addTo(map);
+        layersRef.current.push(line);
+      });
+
+      // Draw active route on top
+      if (routes[activeIndex]?.coords?.length) {
+        const activeRoute = routes[activeIndex];
         const color = routeStatus === "safe" ? "#22c55e" : "#f97316";
 
         // Glow
@@ -117,7 +138,7 @@ export default function FloodMap({ userLocation, destination, activeRoute, route
         layersRef.current.push(glow);
 
         // Main line
-        const line = L.polyline(activeRoute.coords, { color, weight: 5, opacity: 0.9 });
+        const line = L.polyline(activeRoute.coords, { color, weight: 6, opacity: 0.95 });
         (line as unknown as { _isRoute: boolean })._isRoute = true;
         line.addTo(map);
         layersRef.current.push(line);
@@ -138,7 +159,7 @@ export default function FloodMap({ userLocation, destination, activeRoute, route
         mapRef.current = null;
       }
     };
-  }, [userLocation, destination, activeRoute, routeStatus]);
+  }, [userLocation, destination, routes, activeIndex, routeStatus, onSelectRoute]);
 
   return (
     <>

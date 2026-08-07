@@ -52,9 +52,18 @@ export default function Home() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [locStatus,    setLocStatus]    = useState<"loading"|"ok"|"denied">("loading");
   const [destination,  setDestination]  = useState<{ lat: number; lon: number; name: string } | null>(null);
-  const [activeRoute,  setActiveRoute]  = useState<RouteResult | null>(null);
+  
+  const [routes,       setRoutes]       = useState<RouteResult[]>([]);
+  const [activeIndex,  setActiveIndex]  = useState(0);
+  const activeRoute = routes[activeIndex] || null;
+
   const [routeStatus,  setRouteStatus]  = useState<"safe"|"all_risky"|null>(null);
   const [mapRouting,   setMapRouting]   = useState(false);
+
+  /* Navigation state */
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const watchIdRef = useRef<number | null>(null);
 
   /* Active tab on mobile */
   const [tab, setTab] = useState<"map"|"ai">("map");
@@ -64,15 +73,33 @@ export default function Home() {
   /* ── Geolocation ─────────────────────────────────────────────────────────── */
   useEffect(() => {
     if (!navigator.geolocation) { setLocStatus("denied"); return; }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-        setLocStatus("ok");
-      },
-      () => setLocStatus("denied"),
-      { timeout: 8000 }
-    );
-  }, []);
+    
+    if (isNavigating) {
+      // High-accuracy live tracking during navigation
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          setLocStatus("ok");
+        },
+        () => setLocStatus("denied"),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+      );
+    } else {
+      // Single snapshot for overview
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          setLocStatus("ok");
+        },
+        () => setLocStatus("denied"),
+        { timeout: 8000 }
+      );
+    }
+
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    };
+  }, [isNavigating]);
 
   /* ── AI assess ───────────────────────────────────────────────────────────── */
   const assess = useCallback(async (query: string) => {
@@ -117,16 +144,17 @@ export default function Home() {
       setDestination({ lat: dest.lat, lon: dest.lon, name: dest.name });
 
       // Fetch routes
-      const routes = await fetchAlternativeRoutes(
+      const fetchedRoutes = await fetchAlternativeRoutes(
         [userLocation.lat, userLocation.lon],
         [dest.lat, dest.lon]
       );
-      if (!routes.length) return;
+      if (!fetchedRoutes.length) return;
 
-      // Pick shortest (OSRM already optimises)
-      const best = routes[0];
-      setActiveRoute(best);
+      setRoutes(fetchedRoutes);
+      setActiveIndex(0); // Safest/best is first by default
       setRouteStatus("safe");
+      setIsNavigating(false);
+      setCurrentStepIndex(0);
     } catch (e) {
       console.error("Map routing failed:", e);
     } finally {
@@ -224,8 +252,10 @@ export default function Home() {
               <FloodMap
                 userLocation={userLocation}
                 destination={destination}
-                activeRoute={activeRoute}
+                routes={routes}
+                activeIndex={activeIndex}
                 routeStatus={routeStatus}
+                onSelectRoute={setActiveIndex}
               />
             </div>
 
@@ -256,24 +286,106 @@ export default function Home() {
               )}
             </div>
 
-            {/* Active route banner */}
-            {activeRoute && (
+            {/* Active route banner OR Navigation Overlay */}
+            {isNavigating && activeRoute ? (
               <div style={{
-                position:"absolute", top:"12px", left:"50%", transform:"translateX(-50%)",
-                zIndex:10, whiteSpace:"nowrap",
-                background:"rgba(6,11,24,0.80)", backdropFilter:"blur(16px)",
-                border:`1px solid ${routeStatus==="safe" ? "rgba(34,197,94,0.3)" : "rgba(249,115,22,0.3)"}`,
-                borderRadius:"100px", padding:"7px 16px", fontSize:"12px", fontWeight:600,
-                color: routeStatus==="safe" ? "rgba(134,239,172,0.95)" : "rgba(253,186,116,0.95)",
-                display:"flex", alignItems:"center", gap:"8px",
+                position:"absolute", top:"16px", left:"50%", transform:"translateX(-50%)",
+                width:"90%", maxWidth:"400px", zIndex:1000,
+                background:"rgba(15,23,42,0.95)", backdropFilter:"blur(24px)",
+                WebkitBackdropFilter:"blur(24px)",
+                border:"1px solid rgba(99,102,241,0.5)", borderRadius:"16px",
+                padding:"16px", boxShadow:"0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)",
               }}>
-                <span>{routeStatus==="safe" ? "✓" : "⚠"}</span>
-                <span>
-                  {routeStatus==="safe" ? "Safest route found" : "Route passes risky zones"}
-                  {" · "}{activeRoute.duration} min · {activeRoute.distance} km
-                </span>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
+                  <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                    ● Live Navigation
+                  </span>
+                  <button onClick={() => setIsNavigating(false)} style={{
+                    background:"rgba(239,68,68,0.15)", color:"#fca5a5", border:"1px solid rgba(239,68,68,0.3)",
+                    padding:"4px 10px", borderRadius:"100px", fontSize:"10px", fontWeight:700, cursor:"pointer"
+                  }}>END</button>
+                </div>
+                
+                <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
+                  <div style={{ width:"48px", height:"48px", borderRadius:"12px", background:"rgba(99,102,241,0.2)",
+                    border:"1px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:"24px", flexShrink:0 }}>
+                    {activeRoute.steps[currentStepIndex]?.modifier?.includes("left") ? "⬅️" :
+                     activeRoute.steps[currentStepIndex]?.modifier?.includes("right") ? "➡️" :
+                     activeRoute.steps[currentStepIndex]?.type === "arrive" ? "🎯" : "⬆️"}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <p style={{ fontSize:"18px", fontWeight:800, color:"#fff", lineHeight:1.2 }}>
+                      {activeRoute.steps[currentStepIndex]?.instruction || "Continue"}
+                    </p>
+                    <p style={{ fontSize:"14px", color:"#94a3b8", fontWeight:600, marginTop:"4px" }}>
+                      in {activeRoute.steps[currentStepIndex]?.distance || 0}m
+                    </p>
+                  </div>
+                </div>
+
+                {/* Manual step controls for hackathon safety */}
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:"16px", borderTop:"1px solid rgba(255,255,255,0.1)", paddingTop:"12px" }}>
+                  <button 
+                    disabled={currentStepIndex === 0}
+                    onClick={() => setCurrentStepIndex(c => Math.max(0, c - 1))}
+                    style={{ padding:"8px 16px", borderRadius:"8px", background:"rgba(255,255,255,0.1)", color:"#fff", fontSize:"12px", border:"none", cursor:"pointer", opacity: currentStepIndex===0 ? 0.3:1 }}
+                  >← Prev Step</button>
+                  <button 
+                    disabled={currentStepIndex >= activeRoute.steps.length - 1}
+                    onClick={() => setCurrentStepIndex(c => Math.min(activeRoute.steps.length - 1, c + 1))}
+                    style={{ padding:"8px 16px", borderRadius:"8px", background:"#4f46e5", color:"#fff", fontSize:"12px", fontWeight:700, border:"none", cursor:"pointer", opacity: currentStepIndex >= activeRoute.steps.length -1 ? 0.3:1 }}
+                  >Next Step →</button>
+                </div>
               </div>
-            )}
+            ) : activeRoute && !isNavigating ? (
+              <div style={{
+                position:"absolute", top:"16px", left:"50%", transform:"translateX(-50%)",
+                zIndex:1000, display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", width:"100%", maxWidth:"300px"
+              }}>
+                <div style={{
+                  background:"rgba(6,11,24,0.85)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)",
+                  border:`1px solid ${routeStatus==="safe" ? "rgba(34,197,94,0.4)" : "rgba(249,115,22,0.4)"}`,
+                  borderRadius:"100px", padding:"8px 20px", fontSize:"13px", fontWeight:600,
+                  color: routeStatus==="safe" ? "rgba(134,239,172,1)" : "rgba(253,186,116,1)",
+                  display:"flex", alignItems:"center", gap:"8px", boxShadow:"0 8px 32px rgba(0,0,0,0.5)"
+                }}>
+                  <span>{routeStatus==="safe" ? "✓" : "⚠"}</span>
+                  <span>
+                    {routeStatus==="safe" ? "Safest route selected" : "Route has risks"}
+                    {" · "}{activeRoute.duration} min
+                  </span>
+                </div>
+                
+                {routes.length > 1 && (
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    {routes.map((r, i) => (
+                      <button key={i} onClick={() => setActiveIndex(i)} style={{
+                        padding:"4px 12px", borderRadius:"100px", fontSize:"11px", fontWeight:600,
+                        background: activeIndex === i ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.05)",
+                        border: `1px solid ${activeIndex === i ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.1)"}`,
+                        color: activeIndex === i ? "#fff" : "var(--text-muted)",
+                        cursor:"pointer"
+                      }}>
+                        Route {i+1} ({r.duration}m)
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <button 
+                  onClick={() => setIsNavigating(true)}
+                  style={{
+                    padding:"10px 24px", borderRadius:"100px", background:"#3b82f6", color:"#fff",
+                    fontWeight:800, fontSize:"14px", border:"none", cursor:"pointer",
+                    boxShadow:"0 4px 20px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.2)",
+                    display:"flex", alignItems:"center", gap:"8px"
+                  }}
+                >
+                  <span style={{ fontSize:"16px" }}>⬈</span> Start Navigation
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {/* SIDEBAR / AI PANEL */}
