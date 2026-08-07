@@ -33,9 +33,11 @@ const TAG_STYLE: Record<string, React.CSSProperties> = {
 
 /* ── Map legend ────────────────────────────────────────────────────────────── */
 const LEGEND = [
-  { color:"#ef4444", label:"High Risk"     },
-  { color:"#f97316", label:"Moderate Risk" },
-  { color:"#eab308", label:"Low Risk"      },
+  { color:"#ef4444", label:"High Risk Zone",     type: "zone" },
+  { color:"#f97316", label:"Moderate Risk Zone", type: "zone" },
+  { color:"#eab308", label:"Low Risk Zone",      type: "zone" },
+  { color:"#22c55e", label:"Safe Route",         type: "line" },
+  { color:"#f97316", label:"Risky Route",        type: "line" },
 ];
 
 export default function Home() {
@@ -229,20 +231,28 @@ export default function Home() {
 
             {/* Map legend */}
             <div style={{
-              position:"absolute", bottom:"80px", left:"12px", zIndex:10,
-              background:"rgba(6,11,24,0.75)", backdropFilter:"blur(16px)",
+              position:"absolute", top:"16px", left:"16px", zIndex:1000,
+              background:"rgba(6,11,24,0.85)", backdropFilter:"blur(20px)",
+              WebkitBackdropFilter:"blur(20px)",
               border:"1px solid var(--glass-border)", borderRadius:"12px",
-              padding:"10px 14px",
+              padding:"14px 16px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)"
             }}>
-              <p className="label-caps" style={{ marginBottom:"8px" }}>Flood Risk</p>
-              {LEGEND.map(l => (
-                <div key={l.label} style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px" }}>
-                  <span style={{ width:"10px", height:"10px", borderRadius:"2px", background:l.color, flexShrink:0, boxShadow:`0 0 6px ${l.color}60` }} />
-                  <span style={{ fontSize:"11px", color:"var(--text-secondary)" }}>{l.label}</span>
-                </div>
-              ))}
+              <p className="label-caps" style={{ marginBottom:"10px", color:"var(--text-primary)" }}>Map Key</p>
+              <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                {LEGEND.map(l => (
+                  <div key={l.label} style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                    {l.type === "zone" ? (
+                      <span style={{ width:"12px", height:"12px", borderRadius:"3px", background:l.color, flexShrink:0, border:"1px solid rgba(255,255,255,0.2)" }} />
+                    ) : (
+                      <span style={{ width:"14px", height:"4px", borderRadius:"2px", background:l.color, flexShrink:0, boxShadow:`0 0 8px ${l.color}90` }} />
+                    )}
+                    <span style={{ fontSize:"12px", color:"var(--text-secondary)", fontWeight:500 }}>{l.label}</span>
+                  </div>
+                ))}
+              </div>
               {mapRouting && (
-                <p style={{ fontSize:"10px", color:"rgba(165,180,252,0.8)", marginTop:"6px" }}>Routing…</p>
+                <p style={{ fontSize:"11px", color:"rgba(165,180,252,0.9)", marginTop:"10px", fontWeight:600 }}>⟳ Routing…</p>
               )}
             </div>
 
