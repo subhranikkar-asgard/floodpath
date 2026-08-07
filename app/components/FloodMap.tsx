@@ -126,7 +126,13 @@ export default function FloodMap({ userLocation, destination, activeRoute, route
       }
     });
 
+    const ro = new ResizeObserver(() => {
+      if (mapRef.current) mapRef.current.invalidateSize();
+    });
+    ro.observe(containerRef.current);
+
     return () => {
+      ro.disconnect();
       if (mapRef.current && !containerRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
