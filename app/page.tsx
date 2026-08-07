@@ -138,14 +138,20 @@ export default function Home() {
 
   /* ── Map routing ─────────────────────────────────────────────────────────── */
   async function routeOnMap(query: string, destName: string) {
-    if (!userLocation) return;
+    if (!userLocation) {
+      setAiError("Cannot route: Waiting for your GPS location.");
+      return;
+    }
     setMapRouting(true);
     try {
       const { searchPlace, fetchAlternativeRoutes } = await import("@/lib/routing");
 
       // Geocode destination
       const results = await searchPlace(destName);
-      if (!results.length) return;
+      if (!results.length) {
+        setAiError(`Could not find a map location for "${destName}". Try a more specific place.`);
+        return;
+      }
       const dest = results[0];
       setDestination({ lat: dest.lat, lon: dest.lon, name: dest.name });
 
@@ -154,15 +160,20 @@ export default function Home() {
         [userLocation.lat, userLocation.lon],
         [dest.lat, dest.lon]
       );
-      if (!fetchedRoutes.length) return;
+      if (!fetchedRoutes.length) {
+        setAiError("OSRM could not find a driving route to this destination.");
+        return;
+      }
 
       setRoutes(fetchedRoutes);
       setActiveIndex(0); // Safest/best is first by default
       setRouteStatus("safe");
       setIsNavigating(false);
       setCurrentStepIndex(0);
+      setAiError(null); // Clear errors on success
     } catch (e) {
       console.error("Map routing failed:", e);
+      setAiError("Failed to calculate routes. The routing server might be down.");
     } finally {
       setMapRouting(false);
     }
