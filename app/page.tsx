@@ -219,7 +219,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 style={{ fontSize:"17px", fontWeight:800, lineHeight:1.1 }} className="text-gradient">FloodPath</h1>
-                <p style={{ fontSize:"10px", color:"var(--text-muted)", letterSpacing:"0.05em" }}>Kolkata · Flood Risk &amp; Route Advisor</p>
+                <p style={{ fontSize:"10px", color:"var(--text-muted)", letterSpacing:"0.05em" }}>Waterlogging &amp; Flood-Prone Route Advisor · Kolkata</p>
               </div>
             </div>
 
