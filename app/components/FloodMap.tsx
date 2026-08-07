@@ -110,41 +110,59 @@ export default function FloodMap({ userLocation, destination, routes, activeInde
 
       // Draw alternative routes first (so they are underneath)
       routes.forEach((route, idx) => {
-        if (idx === activeIndex) return; // Draw active last
+        const isActive = idx === activeIndex;
+        const color = isActive ? (routeStatus === "safe" ? "#22c55e" : "#f97316") : "#64748b";
         
         // Transparent thick line for click area
-        const clickLine = L.polyline(route.coords, { color: "transparent", weight: 20 });
+        const clickLine = L.polyline(route.coords, { color: "transparent", weight: 30 });
         (clickLine as unknown as { _isRoute: boolean })._isRoute = true;
         clickLine.on("click", () => onSelectRoute && onSelectRoute(idx));
         clickLine.addTo(map);
         layersRef.current.push(clickLine);
 
         // Visible line
-        const line = L.polyline(route.coords, { color: "#64748b", weight: 5, opacity: 0.6, dashArray: "5, 8" });
-        (line as unknown as { _isRoute: boolean })._isRoute = true;
-        line.addTo(map);
-        layersRef.current.push(line);
+        if (isActive) {
+          const glow = L.polyline(route.coords, { color, weight: 12, opacity: 0.2 });
+          (glow as unknown as { _isRoute: boolean })._isRoute = true;
+          glow.addTo(map);
+          layersRef.current.push(glow);
+
+          const line = L.polyline(route.coords, { color, weight: 6, opacity: 0.95 });
+          (line as unknown as { _isRoute: boolean })._isRoute = true;
+          line.addTo(map);
+          layersRef.current.push(line);
+          
+          map.fitBounds(L.latLngBounds(route.coords), { padding: [60, 60] });
+        } else {
+          const line = L.polyline(route.coords, { color, weight: 5, opacity: 0.7, dashArray: "5, 8" });
+          (line as unknown as { _isRoute: boolean })._isRoute = true;
+          line.addTo(map);
+          layersRef.current.push(line);
+        }
+
+        // Add duration bubble on the route
+        if (route.coords.length > 0) {
+          const midPoint = route.coords[Math.floor(route.coords.length / 2)];
+          const iconHtml = `<div style="
+            background: ${isActive ? (routeStatus === "safe" ? "#166534" : "#9a3412") : "#334155"};
+            color: white;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: bold;
+            border: 2px solid ${isActive ? color : "#64748b"};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            white-space: nowrap;
+            cursor: pointer;
+          ">${route.duration} min</div>`;
+          
+          const icon = L.divIcon({ html: iconHtml, className: "", iconSize: [0, 0], iconAnchor: [30, 15] });
+          const marker = L.marker(midPoint, { icon });
+          marker.on("click", () => onSelectRoute && onSelectRoute(idx));
+          marker.addTo(map);
+          layersRef.current.push(marker);
+        }
       });
-
-      // Draw active route on top
-      if (routes[activeIndex]?.coords?.length) {
-        const activeRoute = routes[activeIndex];
-        const color = routeStatus === "safe" ? "#22c55e" : "#f97316";
-
-        // Glow
-        const glow = L.polyline(activeRoute.coords, { color, weight: 12, opacity: 0.15 });
-        (glow as unknown as { _isRoute: boolean })._isRoute = true;
-        glow.addTo(map);
-        layersRef.current.push(glow);
-
-        // Main line
-        const line = L.polyline(activeRoute.coords, { color, weight: 6, opacity: 0.95 });
-        (line as unknown as { _isRoute: boolean })._isRoute = true;
-        line.addTo(map);
-        layersRef.current.push(line);
-
-        map.fitBounds(L.latLngBounds(activeRoute.coords), { padding: [60, 60] });
-      }
     });
 
     const ro = new ResizeObserver(() => {

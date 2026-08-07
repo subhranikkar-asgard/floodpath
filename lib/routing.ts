@@ -26,6 +26,7 @@ export interface RouteResult {
   coords: [number, number][];
   duration: number;   // minutes
   distance: string;   // km string
+  summary: string;    // e.g., "via Park Street"
   color?: string;
   steps: RouteStep[];
 }
@@ -50,12 +51,23 @@ export async function fetchAlternativeRoutes(
       distance: Math.round(step.distance),
       modifier: step.maneuver.modifier,
       type: step.maneuver.type,
+      name: step.name
     })) || [];
+
+    // Derive a summary (e.g., "via X") by finding the longest road name in the steps
+    let summary = "Local roads";
+    const namedSteps = steps.filter(s => (s as any).name && (s as any).name.length > 0);
+    if (namedSteps.length > 0) {
+      // Find the step with the longest distance
+      const longestStep = namedSteps.reduce((prev, current) => (prev.distance > current.distance) ? prev : current);
+      summary = `via ${(longestStep as any).name}`;
+    }
 
     return {
       coords:   decodePolyline(r.geometry),
       duration: Math.round(r.duration / 60),
       distance: (r.distance / 1000).toFixed(1),
+      summary,
       steps,
     };
   });

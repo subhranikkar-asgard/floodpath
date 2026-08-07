@@ -344,53 +344,6 @@ export default function Home() {
                   >Next Step →</button>
                 </div>
               </div>
-            ) : activeRoute && !isNavigating ? (
-              <div style={{
-                position:"absolute", top:"16px", left:"50%", transform:"translateX(-50%)",
-                zIndex:1000, display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", width:"100%", maxWidth:"300px"
-              }}>
-                <div style={{
-                  background:"rgba(6,11,24,0.85)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)",
-                  border:`1px solid ${routeStatus==="safe" ? "rgba(34,197,94,0.4)" : "rgba(249,115,22,0.4)"}`,
-                  borderRadius:"100px", padding:"8px 20px", fontSize:"13px", fontWeight:600,
-                  color: routeStatus==="safe" ? "rgba(134,239,172,1)" : "rgba(253,186,116,1)",
-                  display:"flex", alignItems:"center", gap:"8px", boxShadow:"0 8px 32px rgba(0,0,0,0.5)"
-                }}>
-                  <span>{routeStatus==="safe" ? "✓" : "⚠"}</span>
-                  <span>
-                    {routeStatus==="safe" ? "Safest route selected" : "Route has risks"}
-                    {" · "}{activeRoute.duration} min
-                  </span>
-                </div>
-                
-                {routes.length > 1 && (
-                  <div style={{ display:"flex", gap:"8px" }}>
-                    {routes.map((r, i) => (
-                      <button key={i} onClick={() => setActiveIndex(i)} style={{
-                        padding:"4px 12px", borderRadius:"100px", fontSize:"11px", fontWeight:600,
-                        background: activeIndex === i ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.05)",
-                        border: `1px solid ${activeIndex === i ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.1)"}`,
-                        color: activeIndex === i ? "#fff" : "var(--text-muted)",
-                        cursor:"pointer"
-                      }}>
-                        Route {i+1} ({r.duration}m)
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <button 
-                  onClick={() => setIsNavigating(true)}
-                  style={{
-                    padding:"10px 24px", borderRadius:"100px", background:"#3b82f6", color:"#fff",
-                    fontWeight:800, fontSize:"14px", border:"none", cursor:"pointer",
-                    boxShadow:"0 4px 20px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.2)",
-                    display:"flex", alignItems:"center", gap:"8px"
-                  }}
-                >
-                  <span style={{ fontSize:"16px" }}>⬈</span> Start Navigation
-                </button>
-              </div>
             ) : null}
           </div>
 
@@ -461,7 +414,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Results */}
+            {/* Results or Alternative Routes */}
             <div ref={resultRef}>
               {aiLoading && <LoadingState />}
               {aiError && !aiLoading && (
@@ -470,19 +423,83 @@ export default function Home() {
                   <p style={{ fontSize:"13px", color:"rgba(252,165,165,0.9)" }}>{aiError}</p>
                 </div>
               )}
-              {aiResult && !aiLoading && (
+              
+              {/* If we have routes, show the route list (Google Maps style) */}
+              {routes.length > 0 && !aiLoading ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:"12px", marginBottom:"16px" }}>
+                  <div style={{ padding:"12px 16px", background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.3)", borderRadius:"12px" }}>
+                    <p style={{ fontSize:"14px", color:"#86efac", fontWeight:700 }}>✓ Safest routes mapped</p>
+                    <p style={{ fontSize:"12px", color:"#bbf7d0", marginTop:"4px" }}>Select a route below to preview, then start navigation.</p>
+                  </div>
+                  
+                  {routes.map((r, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => setActiveIndex(i)}
+                      style={{
+                        padding:"16px", borderRadius:"12px", cursor:"pointer", transition:"all 0.2s",
+                        background: activeIndex === i ? "rgba(56,189,248,0.1)" : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${activeIndex === i ? "rgba(56,189,248,0.4)" : "rgba(255,255,255,0.1)"}`,
+                        display:"flex", flexDirection:"column", gap:"8px"
+                      }}
+                    >
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                        <div>
+                          <p style={{ fontSize:"16px", fontWeight:700, color: activeIndex===i ? "#fff" : "var(--text-primary)" }}>
+                            {r.duration} min
+                          </p>
+                          <p style={{ fontSize:"12px", color:"var(--text-muted)", marginTop:"2px" }}>
+                            {r.distance} km
+                          </p>
+                        </div>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
+                          {i === 0 && (
+                            <span style={{ fontSize:"10px", fontWeight:800, background:"#22c55e", color:"#000", padding:"2px 6px", borderRadius:"4px", textTransform:"uppercase" }}>
+                              Best Route
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p style={{ fontSize:"13px", color:"var(--text-secondary)", fontWeight:500 }}>
+                        {r.summary}
+                      </p>
+                      
+                      {/* Navigation Button for Active Route */}
+                      {activeIndex === i && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setIsNavigating(true); }}
+                          style={{
+                            marginTop:"12px", padding:"10px 0", width:"100%", borderRadius:"100px",
+                            background:"#3b82f6", color:"#fff", fontWeight:700, fontSize:"14px", border:"none",
+                            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px",
+                            boxShadow:"0 4px 14px rgba(59,130,246,0.4)"
+                          }}
+                        >
+                          ⬈ Start Navigation
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {/* Also show AI Risk summary if available */}
+                  {aiResult && (
+                    <div style={{ marginTop:"12px", borderTop:"1px solid var(--glass-border)", paddingTop:"16px" }}>
+                      <p style={{ fontSize:"12px", color:"var(--text-muted)", marginBottom:"8px", fontWeight:600 }}>AI Risk Analysis</p>
+                      <RiskCard result={aiResult} />
+                    </div>
+                  )}
+                </div>
+              ) : aiResult && !aiLoading ? (
                 <div style={{ marginBottom:"14px" }}>
                   <p style={{ fontSize:"10px", color:"var(--text-muted)", marginBottom:"8px", fontFamily:"monospace" }}>
                     Query: &quot;{lastQuery}&quot;
                   </p>
                   <RiskCard result={aiResult} />
                 </div>
-              )}
-              {!aiResult && !aiLoading && !aiError && (
+              ) : !aiLoading && !aiError ? (
                 <div className="glass" style={{ padding:"18px", textAlign:"center", marginBottom:"14px" }}>
                   <p style={{ fontSize:"13px", color:"var(--text-muted)", lineHeight:1.7, marginBottom:"16px" }}>
-                    Type a query above or tap a quick prompt to see the AI risk assessment here.
-                    Matching a route will also draw it on the map.
+                    Type a query above or tap a quick prompt to see alternative safe routes and AI risk assessment here.
                   </p>
                   <div style={{ display:"flex", justifyContent:"center", gap:"20px", paddingTop:"12px",
                     borderTop:"1px solid var(--glass-border)", flexWrap:"wrap" }}>
@@ -494,7 +511,7 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </main>
