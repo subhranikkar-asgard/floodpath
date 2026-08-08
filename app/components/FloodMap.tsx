@@ -180,6 +180,7 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
       // Remove existing layers to recreate them with proper z-index and properties
       if (map.getLayer(`route-glow-${idx}`)) map.removeLayer(`route-glow-${idx}`);
       if (map.getLayer(`route-line-${idx}`)) map.removeLayer(`route-line-${idx}`);
+      if (map.getLayer(`route-arrows-${idx}`)) map.removeLayer(`route-arrows-${idx}`);
 
       if (isActive) {
         // Glow effect
@@ -199,7 +200,7 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
 
       const paintProps: any = {
         "line-color": color,
-        "line-width": isActive ? 6 : 4,
+        "line-width": isActive ? 8 : 4,
         "line-opacity": isActive ? 1 : 0.6,
       };
       if (!isActive) {
@@ -213,12 +214,35 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
         layout: { "line-join": "round", "line-cap": "round" },
         paint: paintProps
       });
+
+      if (isActive) {
+        // Directional arrows
+        map.addLayer({
+          id: `route-arrows-${idx}`,
+          type: "symbol",
+          source: sourceId,
+          layout: {
+            "symbol-placement": "line",
+            "symbol-spacing": 80,
+            "text-field": "►",
+            "text-size": 18,
+            "text-keep-upright": false,
+            "text-pitch-alignment": "map"
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": color,
+            "text-halo-width": 2
+          }
+        });
+      }
     });
 
     // Clean up any lingering layers from a previous state that had more routes
     for (let i = routes.length; i < 20; i++) {
       if (map.getLayer(`route-glow-${i}`)) map.removeLayer(`route-glow-${i}`);
       if (map.getLayer(`route-line-${i}`)) map.removeLayer(`route-line-${i}`);
+      if (map.getLayer(`route-arrows-${i}`)) map.removeLayer(`route-arrows-${i}`);
       if (map.getSource(`route-source-${i}`)) map.removeSource(`route-source-${i}`);
     }
 
