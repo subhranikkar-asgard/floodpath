@@ -313,13 +313,13 @@ export default function Home() {
             {/* Map legend */}
             <div style={{
               position:"absolute", top:"16px", left:"16px", zIndex:1000,
-              background:"rgba(6,11,24,0.85)", backdropFilter:"blur(20px)",
-              WebkitBackdropFilter:"blur(20px)",
-              border:"1px solid var(--glass-border)", borderRadius:"12px",
+              background:"rgba(6, 11, 24, 0.35)", backdropFilter:"blur(12px)",
+              WebkitBackdropFilter:"blur(12px)",
+              border:"1px solid rgba(255, 255, 255, 0.15)", borderRadius:"12px",
               padding:"14px 16px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)"
+              boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)"
             }}>
-              <p className="label-caps" style={{ marginBottom:"10px", color:"var(--text-primary)" }}>Map Key</p>
+              <p className="label-caps" style={{ marginBottom:"10px", color:"#fff", textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>Map Key</p>
               <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
                 {LEGEND.map(l => (
                   <div key={l.label} style={{ display:"flex", alignItems:"center", gap:"10px" }}>
@@ -328,7 +328,7 @@ export default function Home() {
                     ) : (
                       <span style={{ width:"14px", height:"4px", borderRadius:"2px", background:l.color, flexShrink:0, boxShadow:`0 0 8px ${l.color}90` }} />
                     )}
-                    <span style={{ fontSize:"12px", color:"var(--text-secondary)", fontWeight:500 }}>{l.label}</span>
+                    <span style={{ fontSize:"12px", color:"#fff", fontWeight:600, textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>{l.label}</span>
                   </div>
                 ))}
               </div>
