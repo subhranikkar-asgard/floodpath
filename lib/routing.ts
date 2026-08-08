@@ -88,6 +88,7 @@ export interface RouteResult {
   summary: string;    // e.g., "via Park Street"
   color?: string;
   steps: RouteStep[];
+  lowestElevation?: number; // meters above sea level
 }
 
 // ── Route parsing helper ─────────────────────────────────────────────────────
@@ -136,17 +137,19 @@ export function parseOSRMRoute(r: OSRMRoute): RouteResult {
  */
 export async function fetchAlternativeRoutes(
   origin: [number, number],
-  destination: [number, number]
+  destination: [number, number],
+  mode: "driving" | "foot" = "driving"
 ): Promise<RouteResult[]> {
   const [oLat, oLon] = origin;
   const [dLat, dLon] = destination;
 
-  const cacheKey = `${oLat},${oLon}-${dLat},${dLon}`;
+  const cacheKey = `${mode}-${oLat},${oLon}-${dLat},${dLon}`;
   if (routeCache.has(cacheKey)) {
     return routeCache.get(cacheKey)!;
   }
 
-  const url = `${OSRM_BASE}/${oLon},${oLat};${dLon},${dLat}?overview=full&geometries=polyline&alternatives=true&steps=true`;
+  const baseUrl = mode === "foot" ? "https://router.project-osrm.org/route/v1/foot" : OSRM_BASE;
+  const url = `${baseUrl}/${oLon},${oLat};${dLon},${dLat}?overview=full&geometries=polyline&alternatives=true&steps=true`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`OSRM error: ${res.status} ${res.statusText}`);
 
@@ -154,6 +157,36 @@ export async function fetchAlternativeRoutes(
   if (!json.routes?.length) throw new Error("No routes found");
 
   const parsedRoutes = json.routes.map(parseOSRMRoute);
+
+  // Fetch elevation data for routes
+  try {
+    // Sample a few points from each route to avoid URI too long errors
+    const allSampledPoints = parsedRoutes.flatMap(route => {
+      const step = Math.max(1, Math.floor(route.coords.length / 10)); // Sample ~10 points per route
+      return route.coords.filter((_, i) => i % step === 0);
+    });
+    
+    if (allSampledPoints.length > 0) {
+      const lats = allSampledPoints.map(p => p[0].toFixed(4)).join(",");
+      const lons = allSampledPoints.map(p => p[1].toFixed(4)).join(",");
+      const elevRes = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`);
+      
+      if (elevRes.ok) {
+        const elevData = await elevRes.json();
+        if (elevData.elevation && elevData.elevation.length === allSampledPoints.length) {
+          let globalIndex = 0;
+          parsedRoutes.forEach(route => {
+            const numSamples = Math.floor(route.coords.length / Math.max(1, Math.floor(route.coords.length / 10))) + (route.coords.length % Math.max(1, Math.floor(route.coords.length / 10)) === 0 ? 0 : 1);
+            const routeElevations = elevData.elevation.slice(globalIndex, globalIndex + numSamples);
+            globalIndex += numSamples;
+            route.lowestElevation = Math.min(...routeElevations);
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch elevation data", e);
+  }
 
   routeCache.set(cacheKey, parsedRoutes);
   return parsedRoutes;

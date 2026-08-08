@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RouteResult } from "@/lib/routing";
 import { kolkataFloodZones, RISK_COLORS } from "@/data/flood_zones_geo";
 
@@ -13,19 +13,27 @@ interface Props {
   onSelectRoute?: (index: number) => void;
 }
 
-export default function FloodMap({ userLocation, destination, routes, activeIndex, routeStatus, isNavigating, onSelectRoute }: Props) {
+export default function FloodMap({ userLocation, destination, routes = [], activeIndex = 0, routeStatus, isNavigating = false, onSelectRoute }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef       = useRef<ReturnType<typeof import("leaflet")["map"]> | null>(null);
-  const layersRef    = useRef<unknown[]>([]);
-  const userMarkerRef = useRef<unknown>(null);
+  const mapRef       = useRef<any>(null);
+  const layersRef    = useRef<any[]>([]);
+  const userMarkerRef = useRef<any>(null);
+  const reportsLayersRef = useRef<any[]>([]);
+
+  const [reportMode, setReportMode] = useState(false);
+  const [reports, setReports] = useState<{lat: number, lon: number, id: number}[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("flood_reports");
+    if (saved) setReports(JSON.parse(saved));
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current) return;
 
     import("leaflet").then((L) => {
       // Fix default icon
-      // @ts-expect-error leaflet internal
-      delete L.Icon.Default.prototype._getIconUrl;
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
         iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -208,14 +216,67 @@ export default function FloodMap({ userLocation, destination, routes, activeInde
     });
   }, [userLocation, isNavigating, destination, routes.length]);
 
+  // Handle map clicks for report mode dynamically
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const onClick = (e: any) => {
+      if (!reportMode) return;
+      const newReport = { lat: e.latlng.lat, lon: e.latlng.lng, id: Date.now() };
+      const updated = [...reports, newReport];
+      setReports(updated);
+      localStorage.setItem("flood_reports", JSON.stringify(updated));
+      setReportMode(false); // turn off after 1 click
+    };
+    map.on('click', onClick);
+    return () => { map.off('click', onClick); };
+  }, [reportMode, reports]);
+
+  // Render report markers
+  useEffect(() => {
+    if (!mapRef.current) return;
+    import("leaflet").then((L) => {
+      const map = mapRef.current!;
+      reportsLayersRef.current.forEach(l => map.removeLayer(l));
+      reportsLayersRef.current = [];
+      
+      reports.forEach(r => {
+        const icon = L.divIcon({
+          html: `<div style="font-size: 20px; background: rgba(239,68,68,0.2); border-radius: 50%; padding: 4px; box-shadow: 0 0 10px rgba(239,68,68,0.5);">🚨</div>`,
+          className: "",
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+        const marker = L.marker([r.lat, r.lon], { icon }).addTo(map);
+        reportsLayersRef.current.push(marker);
+      });
+    });
+  }, [reports]);
+
   return (
-    <>
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <div
         ref={containerRef}
-        style={{ width: "100%", height: "100%", background: "#0f172a" }}
+        style={{ width: "100%", height: "100%", background: "#0f172a", cursor: reportMode ? "crosshair" : "grab" }}
         aria-label="Kolkata flood risk map"
       />
-    </>
+      {/* Report Button */}
+      {!isNavigating && (
+        <button
+          onClick={() => setReportMode(!reportMode)}
+          style={{
+            position: "absolute", bottom: "30px", left: "50%", transform: "translateX(-50%)", zIndex: 1000,
+            background: reportMode ? "#ef4444" : "rgba(15,23,42,0.8)",
+            color: "white", padding: "10px 20px", borderRadius: "100px",
+            border: `1px solid ${reportMode ? "#b91c1c" : "rgba(255,255,255,0.2)"}`,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)", fontWeight: 600, fontSize: "14px", cursor: "pointer",
+            backdropFilter: "blur(8px)"
+          }}
+        >
+          {reportMode ? "Tap map to report flood 📍" : "🚨 Report Flood"}
+        </button>
+      )}
+    </div>
   );
 }

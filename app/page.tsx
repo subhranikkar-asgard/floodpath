@@ -59,10 +59,15 @@ export default function Home() {
 
   const [routeStatus,  setRouteStatus]  = useState<"safe"|"all_risky"|null>(null);
   const [mapRouting,   setMapRouting]   = useState(false);
+  const [travelMode,   setTravelMode]   = useState<"driving"|"foot">("driving");
+  
+  /* Weather state */
+  const [weather, setWeather] = useState<{ precip: number, code: number } | null>(null);
 
   /* Navigation state */
   const [isNavigating, setIsNavigating] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const watchIdRef = useRef<number | null>(null);
 
   /* Active tab on mobile */
@@ -106,6 +111,33 @@ export default function Home() {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     };
   }, [isNavigating]);
+
+  /* ── Live Weather ────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    async function fetchWeather() {
+      try {
+        const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=22.5726&longitude=88.3639&current=precipitation,weather_code&timezone=Asia%2FKolkata");
+        const data = await res.json();
+        if (data && data.current) {
+          setWeather({ precip: data.current.precipitation, code: data.current.weather_code });
+        }
+      } catch (e) { console.error("Weather fetch failed", e); }
+    }
+    fetchWeather();
+  }, []);
+
+  /* ── Voice Navigation ────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (isNavigating && voiceEnabled && activeRoute && activeRoute.steps[currentStepIndex]) {
+      const instruction = activeRoute.steps[currentStepIndex].instruction;
+      if (instruction && typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(instruction);
+        msg.rate = 1.0;
+        window.speechSynthesis.speak(msg);
+      }
+    }
+  }, [currentStepIndex, isNavigating, voiceEnabled, activeRoute]);
 
   /* ── AI assess ───────────────────────────────────────────────────────────── */
   const assess = useCallback(async (query: string) => {
@@ -158,7 +190,8 @@ export default function Home() {
       // Fetch routes
       const fetchedRoutes = await fetchAlternativeRoutes(
         [userLocation.lat, userLocation.lon],
-        [dest.lat, dest.lon]
+        [results[0].lat, results[0].lon],
+        travelMode
       );
       if (!fetchedRoutes.length) {
         setAiError("OSRM could not find a driving route to this destination.");
@@ -299,6 +332,21 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+              
+              {/* Weather Widget */}
+              {weather && (
+                <div style={{ marginTop:"16px", padding:"12px", background:"rgba(14,165,233,0.1)", borderRadius:"12px", border:"1px solid rgba(14,165,233,0.2)" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px" }}>
+                    <span style={{ fontSize:"16px" }}>{weather.precip > 0 ? "🌧️" : "⛅"}</span>
+                    <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>Live Weather (Kolkata)</span>
+                  </div>
+                  <p style={{ fontSize:"12px", color:"#e0f2fe", margin:0 }}>
+                    Precipitation: <strong style={{ color: weather.precip > 5 ? "#ef4444" : "#f8fafc" }}>{weather.precip} mm</strong>
+                    {weather.precip > 5 && " ⚠️ Heavy rain detected!"}
+                  </p>
+                </div>
+              )}
+
               {mapRouting && (
                 <p style={{ fontSize:"11px", color:"rgba(165,180,252,0.9)", marginTop:"10px", fontWeight:600 }}>⟳ Routing…</p>
               )}
@@ -324,10 +372,20 @@ export default function Home() {
                   <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>
                     ● Live Navigation
                   </span>
-                  <button aria-label="End Navigation" onClick={() => setIsNavigating(false)} style={{
-                    background:"rgba(239,68,68,0.15)", color:"#fca5a5", border:"1px solid rgba(239,68,68,0.3)",
-                    padding:"4px 10px", borderRadius:"100px", fontSize:"10px", fontWeight:700, cursor:"pointer"
-                  }}>END</button>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button aria-label="Toggle Voice" onClick={() => setVoiceEnabled(v => !v)} style={{
+                      background: voiceEnabled ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.1)",
+                      color: voiceEnabled ? "#86efac" : "#fff",
+                      border: `1px solid ${voiceEnabled ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.2)"}`,
+                      padding:"4px 10px", borderRadius:"100px", fontSize:"10px", fontWeight:700, cursor:"pointer"
+                    }}>
+                      {voiceEnabled ? "🔊 ON" : "🔇 OFF"}
+                    </button>
+                    <button aria-label="End Navigation" onClick={() => setIsNavigating(false)} style={{
+                      background:"rgba(239,68,68,0.15)", color:"#fca5a5", border:"1px solid rgba(239,68,68,0.3)",
+                      padding:"4px 10px", borderRadius:"100px", fontSize:"10px", fontWeight:700, cursor:"pointer"
+                    }}>END</button>
+                  </div>
                 </div>
                 
                 <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
@@ -348,7 +406,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Manual step controls for hackathon safety */}
                 <div style={{ display:"flex", justifyContent:"space-between", marginTop:"16px", borderTop:"1px solid rgba(255,255,255,0.1)", paddingTop:"12px" }}>
                   <button 
                     aria-label="Previous Step"
