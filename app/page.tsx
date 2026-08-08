@@ -161,7 +161,7 @@ export default function Home() {
 
       /* Trigger map routing if the query looks like a route */
       if (data.intent === "route" && data.destination) {
-        routeOnMap(query, data.destination);
+        routeOnMap(query, data.destination, data.origin);
       }
     } catch {
       setAiError("Network error — please check your connection.");
@@ -169,22 +169,40 @@ export default function Home() {
       setAiLoading(false);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior:"smooth", block:"nearest" }), 100);
     }
-  }, [tab]);
+  }, [tab, userLocation]);
 
   /* ── Map routing ─────────────────────────────────────────────────────────── */
-  async function routeOnMap(query: string, destName: string) {
-    if (!userLocation) {
-      setAiError("Cannot route: Waiting for your GPS location.");
-      return;
-    }
+  async function routeOnMap(query: string, destName: string, originName?: string | null) {
     setMapRouting(true);
     try {
       const { searchPlace, fetchAlternativeRoutes } = await import("@/lib/routing");
+      
+      let startLat, startLon;
+
+      if (originName && originName.toLowerCase() !== "current location" && originName.toLowerCase() !== "here") {
+        const originResults = await searchPlace(originName);
+        if (!originResults.length) {
+           setAiError(`Could not find a map location for origin "${originName}".`);
+           setMapRouting(false);
+           return;
+        }
+        startLat = originResults[0].lat;
+        startLon = originResults[0].lon;
+      } else {
+        if (!userLocation) {
+          setAiError("Cannot route: Waiting for your GPS location.");
+          setMapRouting(false);
+          return;
+        }
+        startLat = userLocation.lat;
+        startLon = userLocation.lon;
+      }
 
       // Geocode destination
       const results = await searchPlace(destName);
       if (!results.length) {
         setAiError(`Could not find a map location for "${destName}". Try a more specific place.`);
+        setMapRouting(false);
         return;
       }
       const dest = results[0];
@@ -192,7 +210,7 @@ export default function Home() {
 
       // Fetch routes
       const fetchedRoutes = await fetchAlternativeRoutes(
-        [userLocation.lat, userLocation.lon],
+        [startLat, startLon],
         [results[0].lat, results[0].lon],
         travelMode
       );
