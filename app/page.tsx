@@ -92,8 +92,8 @@ export default function Home() {
           setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
           setLocStatus("ok");
         },
-        () => setFallback(),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+        (err) => { console.warn("GPS watch failed:", err.message); setFallback(); },
+        { enableHighAccuracy: false, maximumAge: 5000, timeout: 15000 }
       );
     } else {
       // Single snapshot for overview
@@ -102,8 +102,8 @@ export default function Home() {
           setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
           setLocStatus("ok");
         },
-        () => setFallback(),
-        { timeout: 8000 }
+        (err) => { console.warn("GPS snapshot failed:", err.message); setFallback(); },
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: 15000 }
       );
     }
 
