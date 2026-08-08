@@ -656,15 +656,15 @@ export default function Home() {
                         <motion.button 
                           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
                           whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                          onClick={(e) => { e.stopPropagation(); setIsNavigating(true); }}
+                          onClick={(e) => { e.stopPropagation(); setIsNavigating(!isNavigating); }}
                           style={{
                             marginTop:"12px", padding:"12px 0", width:"100%", borderRadius:"100px",
-                            background:"linear-gradient(135deg, #3b82f6, #6366f1)", color:"#fff", fontWeight:700, fontSize:"14px", border:"none",
+                            background: isNavigating ? "linear-gradient(135deg, #ef4444, #f43f5e)" : "linear-gradient(135deg, #3b82f6, #6366f1)", color:"#fff", fontWeight:700, fontSize:"14px", border:"none",
                             cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px",
-                            boxShadow:"0 4px 14px rgba(59,130,246,0.4)"
+                            boxShadow: isNavigating ? "0 4px 14px rgba(239,68,68,0.4)" : "0 4px 14px rgba(59,130,246,0.4)"
                           }}
                         >
-                          <Navigation size={16} /> Start Navigation
+                          <Navigation size={16} /> {isNavigating ? "Exit Navigation" : "Start Navigation"}
                         </motion.button>
                       )}
                     </motion.div>
