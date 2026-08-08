@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { GoogleGenAI } from "@google/genai";
 import { simulateAssessment } from "@/lib/simulate";
-import { STANDARD_DISCLAIMER } from "@/lib/systemPrompt";
+import { SYSTEM_PROMPT, FLOODPATH_SCHEMA, STANDARD_DISCLAIMER } from "@/lib/systemPrompt";
 import type { AssessmentResult } from "@/lib/types";
 
 const SAFE_FALLBACK: AssessmentResult = {
@@ -39,17 +40,38 @@ export async function POST(req: NextRequest) {
     const dataPath = join(process.cwd(), "data", "flood_zone_data.json");
     const dataset  = JSON.parse(readFileSync(dataPath, "utf-8"));
 
-    // ── Simulation mode (works without any API key) ────────────────────────
-    //    For production: swap simulateAssessment() with a real Gemini call
-    //    and pass dataset as grounding context.
-    const result = simulateAssessment(query, dataset);
+    // Check if API key is provided
+    if (!process.env.GEMINI_API_KEY) {
+      // Fallback to simulation mode
+      console.warn("No GEMINI_API_KEY found, falling back to simulation mode.");
+      const result = simulateAssessment(query, dataset);
+      result.disclaimer = STANDARD_DISCLAIMER;
+      return NextResponse.json(result, { status: 200 });
+    }
+
+    // Call real Gemini API
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `User Query: "${query}"\n\nFLOOD_ZONE_DATA (Context):\n${JSON.stringify(dataset)}`,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        responseSchema: FLOODPATH_SCHEMA as any,
+        temperature: 0.1,
+      },
+    });
+
+    if (!response.text) throw new Error("No text in response");
+    const result: AssessmentResult = JSON.parse(response.text);
 
     // Guarantee disclaimer is always canonical
     result.disclaimer = STANDARD_DISCLAIMER;
 
     return NextResponse.json(result, { status: 200 });
 
-  } catch {
+  } catch (error) {
+    console.error("Gemini AI API Error:", error);
     return NextResponse.json(SAFE_FALLBACK, { status: 200 });
   }
 }
