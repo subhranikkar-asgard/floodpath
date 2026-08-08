@@ -79,13 +79,9 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Gemini AI API Error:", error);
     
-    const isKeyError = error?.message?.includes("API_KEY_INVALID") || error?.status === 400 || error?.message?.includes("API key not valid");
-    
     return NextResponse.json({
       ...SAFE_FALLBACK,
-      rationale: isKeyError 
-        ? "Your Gemini API Key is invalid or missing. Please check your Vercel Environment Variables."
-        : "Something went wrong connecting to the AI. Please try again in a moment.",
+      rationale: `AI Error: ${error?.message || "Unknown error occurred"}. Please make sure you have redeployed Vercel!`,
     }, { status: 200 });
   }
 }
