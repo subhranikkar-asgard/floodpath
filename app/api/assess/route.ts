@@ -79,9 +79,16 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Gemini AI API Error:", error);
     
+    let errMsg = error?.message || "Unknown error occurred";
+    if (errMsg.includes("429") || errMsg.includes("Quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+      errMsg = "API Rate Limit Exceeded (Too many requests). Please wait a minute and try again.";
+    } else if (errMsg.length > 150) {
+      errMsg = "Temporary AI service failure. Falling back to default safety routing.";
+    }
+    
     return NextResponse.json({
       ...SAFE_FALLBACK,
-      rationale: `AI Error: ${error?.message || "Unknown error occurred"}. Please make sure you have redeployed Vercel!`,
+      rationale: `AI System: ${errMsg}`,
     }, { status: 200 });
   }
 }
