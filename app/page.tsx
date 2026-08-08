@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import { motion, AnimatePresence } from "framer-motion";
+import { Navigation, MapPin, Droplets, Map, BrainCircuit, Search, ChevronRight, Wind, ShieldAlert, Crosshair } from "lucide-react";
 import type { AssessmentResult } from "@/lib/types";
 import type { RouteResult }      from "@/lib/routing";
 import RiskCard        from "./components/RiskCard";
@@ -248,8 +250,8 @@ export default function Home() {
             <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
               <div style={{ width:"34px", height:"34px", borderRadius:"10px",
                 background:"linear-gradient(135deg,rgba(56,189,248,0.3),rgba(139,92,246,0.3))",
-                border:"1px solid rgba(99,102,241,0.35)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"17px" }}>
-                🌊
+                border:"1px solid rgba(99,102,241,0.35)", display:"flex", alignItems:"center", justifyContent:"center", color: "#38bdf8" }}>
+                <Droplets size={20} />
               </div>
               <div>
                 <h1 style={{ fontSize:"17px", fontWeight:800, lineHeight:1.1 }} className="text-gradient">FloodPath</h1>
@@ -263,13 +265,13 @@ export default function Home() {
                 <button key={t} onClick={() => setTab(t)}
                   style={{
                     padding:"6px 14px", borderRadius:"100px", fontSize:"12px", fontWeight:600,
-                    cursor:"pointer", border:"1px solid",
+                    cursor:"pointer", border:"1px solid", display:"flex", alignItems:"center", gap:"6px",
                     background: tab===t ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.04)",
                     borderColor: tab===t ? "rgba(99,102,241,0.5)" : "var(--glass-border)",
                     color: tab===t ? "rgba(165,180,252,0.95)" : "var(--text-muted)",
                     transition:"all 0.2s",
                   }}>
-                  {t === "map" ? "🗺 Map" : "🤖 AI Risk"}
+                  {t === "map" ? <><Map size={14} /> Map</> : <><BrainCircuit size={14} /> AI Risk</>}
                 </button>
               ))}
             </div>
@@ -336,16 +338,19 @@ export default function Home() {
               
               {/* Weather Widget */}
               {weather && (
-                <div style={{ marginTop:"16px", padding:"12px", background:"rgba(14,165,233,0.1)", borderRadius:"12px", border:"1px solid rgba(14,165,233,0.2)" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px" }}>
-                    <span style={{ fontSize:"16px" }}>{weather.precip > 0 ? "🌧️" : "⛅"}</span>
-                    <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>Live Local Weather</span>
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  style={{ marginTop:"16px", padding:"12px", background:"rgba(14,165,233,0.1)", borderRadius:"12px", border:"1px solid rgba(14,165,233,0.2)" }}
+                >
+                  <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px", color:"#38bdf8" }}>
+                    <Wind size={16} />
+                    <span style={{ fontSize:"11px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em" }}>Live Local Weather</span>
                   </div>
                   <p style={{ fontSize:"12px", color:"#e0f2fe", margin:0 }}>
                     Precipitation: <strong style={{ color: weather.precip > 5 ? "#ef4444" : "#f8fafc" }}>{weather.precip} mm</strong>
                     {weather.precip > 5 && " ⚠️ Heavy rain detected!"}
                   </p>
-                </div>
+                </motion.div>
               )}
 
               {mapRouting && (
@@ -354,8 +359,13 @@ export default function Home() {
             </div>
 
             {/* Active route banner OR Navigation Overlay */}
-            {isNavigating && activeRoute ? (
-              <div 
+            <AnimatePresence>
+            {isNavigating && activeRoute && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 aria-live="polite" 
                 aria-atomic="true"
                 role="region"
@@ -370,8 +380,8 @@ export default function Home() {
                 }}
               >
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
-                  <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>
-                    ● Live Navigation
+                  <span style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                    <Navigation size={14} /> Live Navigation
                   </span>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button aria-label="Toggle Voice" onClick={() => setVoiceEnabled(v => !v)} style={{
@@ -421,13 +431,18 @@ export default function Home() {
                     style={{ padding:"8px 16px", borderRadius:"8px", background:"#4f46e5", color:"#fff", fontSize:"12px", fontWeight:700, border:"none", cursor:"pointer", opacity: currentStepIndex >= activeRoute.steps.length -1 ? 0.3:1 }}
                   >Next Step →</button>
                 </div>
-              </div>
-            ) : null}
+              </motion.div>
+            )}
+            </AnimatePresence>
           </div>
 
           {/* SIDEBAR / AI PANEL */}
-          <div style={{
-            width: typeof window !== "undefined" && window.innerWidth < 768 ? "100%" : "380px",
+          <motion.div 
+            initial={{ x: 300, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 25 }}
+            style={{
+            width: typeof window !== "undefined" && window.innerWidth < 768 ? "100%" : "400px",
             flexShrink: 0,
             overflowY:"auto",
             borderLeft:"1px solid var(--glass-border)",
@@ -435,7 +450,7 @@ export default function Home() {
             backdropFilter:"blur(20px)",
             WebkitBackdropFilter:"blur(20px)",
             display: typeof window !== "undefined" && window.innerWidth < 768 ? (tab==="ai" ? "block" : "none") : "block",
-            padding:"20px 16px",
+            padding:"24px 20px",
             paddingBottom:"0",
           }} className="ai-panel">
 
@@ -477,17 +492,21 @@ export default function Home() {
             </div>
 
             {/* Quick prompts */}
-            <div style={{ marginBottom:"14px" }}>
-              <p className="label-caps" style={{ marginBottom:"8px" }}>Try these</p>
-              <div style={{ display:"flex", flexDirection:"column", gap:"5px" }}>
-                {QUICK.map(p => (
-                  <button key={p.label} onClick={() => { setQueryVal(p.label); assess(p.label); }}
-                    disabled={aiLoading} className="chip" style={{ fontSize:"12px", padding:"8px 12px" }}>
-                    <span className="chip-arrow">→</span>
-                    <span style={{ flex:1 }}>{p.label}</span>
+            <div style={{ marginBottom:"16px" }}>
+              <p className="label-caps" style={{ marginBottom:"8px", color:"#94a3b8" }}>Try these</p>
+              <div style={{ display:"flex", flexDirection:"column", gap:"6px" }}>
+                {QUICK.map((p, i) => (
+                  <motion.button 
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
+                    key={p.label} onClick={() => { setQueryVal(p.label); assess(p.label); }}
+                    disabled={aiLoading} className="chip" style={{ fontSize:"12px", padding:"10px 12px", background:"rgba(255,255,255,0.03)" }}>
+                    <ChevronRight size={14} color="#6366f1" style={{ marginRight:"4px" }} />
+                    <span style={{ flex:1, textAlign:"left" }}>{p.label}</span>
                     <span style={{ flexShrink:0, fontSize:"10px", fontWeight:600, padding:"2px 7px",
                       borderRadius:"100px", ...TAG_STYLE[p.tag] }}>{p.tag}</span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -510,20 +529,26 @@ export default function Home() {
                     <p style={{ fontSize:"12px", color:"#bbf7d0", marginTop:"4px" }}>Select a route below to preview, then start navigation.</p>
                   </div>
                   
+                  <AnimatePresence>
                   {routes.map((r, i) => (
-                    <div 
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ delay: i * 0.1, type: "spring", stiffness: 200 }}
                       key={i} 
                       onClick={() => setActiveIndex(i)}
                       style={{
                         padding:"16px", borderRadius:"12px", cursor:"pointer", transition:"all 0.2s",
                         background: activeIndex === i ? "rgba(56,189,248,0.1)" : "rgba(255,255,255,0.03)",
                         border: `1px solid ${activeIndex === i ? "rgba(56,189,248,0.4)" : "rgba(255,255,255,0.1)"}`,
-                        display:"flex", flexDirection:"column", gap:"8px"
+                        display:"flex", flexDirection:"column", gap:"8px",
+                        boxShadow: activeIndex === i ? "0 4px 20px rgba(56,189,248,0.15)" : "none"
                       }}
                     >
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                         <div>
-                          <p style={{ fontSize:"16px", fontWeight:700, color: activeIndex===i ? "#fff" : "var(--text-primary)" }}>
+                          <p style={{ fontSize:"18px", fontWeight:800, color: activeIndex===i ? "#fff" : "var(--text-primary)" }}>
                             {r.duration} min
                           </p>
                           <p style={{ fontSize:"12px", color:"var(--text-muted)", marginTop:"2px" }}>
@@ -532,8 +557,8 @@ export default function Home() {
                         </div>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
                           {i === 0 && (
-                            <span style={{ fontSize:"10px", fontWeight:800, background:"#22c55e", color:"#000", padding:"2px 6px", borderRadius:"4px", textTransform:"uppercase" }}>
-                              Best Route
+                            <span style={{ display:"flex", alignItems:"center", gap:"4px", fontSize:"10px", fontWeight:800, background:"#22c55e", color:"#000", padding:"4px 8px", borderRadius:"100px", textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                              <ShieldAlert size={12} /> Best Route
                             </span>
                           )}
                         </div>
@@ -544,20 +569,23 @@ export default function Home() {
                       
                       {/* Navigation Button for Active Route */}
                       {activeIndex === i && (
-                        <button 
+                        <motion.button 
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                           onClick={(e) => { e.stopPropagation(); setIsNavigating(true); }}
                           style={{
-                            marginTop:"12px", padding:"10px 0", width:"100%", borderRadius:"100px",
-                            background:"#3b82f6", color:"#fff", fontWeight:700, fontSize:"14px", border:"none",
+                            marginTop:"12px", padding:"12px 0", width:"100%", borderRadius:"100px",
+                            background:"linear-gradient(135deg, #3b82f6, #6366f1)", color:"#fff", fontWeight:700, fontSize:"14px", border:"none",
                             cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px",
                             boxShadow:"0 4px 14px rgba(59,130,246,0.4)"
                           }}
                         >
-                          ⬈ Start Navigation
-                        </button>
+                          <Navigation size={16} /> Start Navigation
+                        </motion.button>
                       )}
-                    </div>
+                    </motion.div>
                   ))}
+                  </AnimatePresence>
                   
                   {/* Also show AI Risk summary if available */}
                   {aiResult && (
@@ -591,7 +619,7 @@ export default function Home() {
                 </div>
               ) : null}
             </div>
-          </div>
+          </motion.div>
         </main>
 
         <DisclaimerFooter />
@@ -601,7 +629,7 @@ export default function Home() {
         @media (min-width: 768px) {
           .mobile-tabs { display: none !important; }
           .map-panel   { display: block !important; }
-          .ai-panel    { display: block !important; width: 380px !important; }
+          .ai-panel    { display: block !important; width: 400px !important; }
         }
         @media (max-width: 767px) {
           .map-panel, .ai-panel { width: 100% !important; }
