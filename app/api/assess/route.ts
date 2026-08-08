@@ -55,15 +55,21 @@ export async function POST(req: NextRequest) {
       model: "gemini-2.5-flash",
       contents: `User Query: "${query}"\n\nFLOOD_ZONE_DATA (Context):\n${JSON.stringify(dataset)}`,
       config: {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: SYSTEM_PROMPT + "\n\nJSON SCHEMA TO FOLLOW:\n" + JSON.stringify(FLOODPATH_SCHEMA),
         responseMimeType: "application/json",
-        responseSchema: FLOODPATH_SCHEMA as any,
         temperature: 0.1,
       },
     });
 
     if (!response.text) throw new Error("No text in response");
-    const result: AssessmentResult = JSON.parse(response.text);
+    
+    // Safely parse JSON even if Gemini wraps it in markdown code blocks
+    let rawText = response.text.trim();
+    if (rawText.startsWith("```json")) rawText = rawText.replace(/^```json/, "");
+    if (rawText.startsWith("```")) rawText = rawText.replace(/^```/, "");
+    if (rawText.endsWith("```")) rawText = rawText.replace(/```$/, "");
+    
+    const result: AssessmentResult = JSON.parse(rawText.trim());
 
     // Guarantee disclaimer is always canonical
     result.disclaimer = STANDARD_DISCLAIMER;
