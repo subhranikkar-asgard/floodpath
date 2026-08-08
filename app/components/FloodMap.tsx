@@ -141,14 +141,15 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
     if (!mapRef.current || !mapLoaded) return;
     const map = mapRef.current;
 
-    // Clear old routes using robust checking
-    for (let i = 0; i < 20; i++) {
-      if (map.getLayer(`route-glow-${i}`)) map.removeLayer(`route-glow-${i}`);
-      if (map.getLayer(`route-line-${i}`)) map.removeLayer(`route-line-${i}`);
-      if (map.getSource(`route-source-${i}`)) map.removeSource(`route-source-${i}`);
+    if (routes.length === 0) {
+      // Clear routes if none exist
+      for (let i = 0; i < 20; i++) {
+        if (map.getLayer(`route-glow-${i}`)) map.removeLayer(`route-glow-${i}`);
+        if (map.getLayer(`route-line-${i}`)) map.removeLayer(`route-line-${i}`);
+        if (map.getSource(`route-source-${i}`)) map.removeSource(`route-source-${i}`);
+      }
+      return;
     }
-
-    if (routes.length === 0) return;
 
     // We draw inactive routes first, then active
     const drawOrder = routes.map((r, i) => i).sort((a, b) => (a === activeIndex ? 1 : -1));
@@ -168,7 +169,17 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
       };
 
       const sourceId = `route-source-${idx}`;
-      map.addSource(sourceId, { type: "geojson", data: geojson });
+      const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
+      
+      if (source) {
+        source.setData(geojson);
+      } else {
+        map.addSource(sourceId, { type: "geojson", data: geojson });
+      }
+
+      // Remove existing layers to recreate them with proper z-index and properties
+      if (map.getLayer(`route-glow-${idx}`)) map.removeLayer(`route-glow-${idx}`);
+      if (map.getLayer(`route-line-${idx}`)) map.removeLayer(`route-line-${idx}`);
 
       if (isActive) {
         // Glow effect
@@ -191,7 +202,6 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
         "line-width": isActive ? 6 : 4,
         "line-opacity": isActive ? 1 : 0.6,
       };
-      // MapLibre throws an error if line-dasharray has length 1. Solid lines should just omit it.
       if (!isActive) {
         paintProps["line-dasharray"] = [2, 2];
       }
@@ -204,6 +214,13 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
         paint: paintProps
       });
     });
+
+    // Clean up any lingering layers from a previous state that had more routes
+    for (let i = routes.length; i < 20; i++) {
+      if (map.getLayer(`route-glow-${i}`)) map.removeLayer(`route-glow-${i}`);
+      if (map.getLayer(`route-line-${i}`)) map.removeLayer(`route-line-${i}`);
+      if (map.getSource(`route-source-${i}`)) map.removeSource(`route-source-${i}`);
+    }
 
     if (!isNavigating && routes.length > 0) {
       const activeRoute = routes[activeIndex];
