@@ -6,7 +6,7 @@ import type { RouteResult } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
 
 interface Props {
-  userLocation: { lat: number; lon: number } | null;
+  userLocation: { lat: number; lon: number; heading?: number | null } | null;
   destination:  { lat: number; lon: number; name: string } | null;
   routes:       RouteResult[];
   activeIndex:  number;
@@ -235,7 +235,44 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
 
   }, [routes, activeIndex, routeStatus, mapLoaded, isNavigating]);
 
-  // 5. Destination & Reports Markers
+  // Dynamic Camera Tracking during navigation
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || !isNavigating || !userLocation) return;
+    const map = mapRef.current;
+
+    map.easeTo({
+      center: [userLocation.lon, userLocation.lat],
+      pitch: 60,
+      zoom: 18.5,
+      bearing: userLocation.heading || 0,
+      duration: 1000,
+      easing: (t) => t * (2 - t) // easeOutQuad
+    });
+  }, [userLocation, isNavigating, mapLoaded]);
+
+  // 5. Destination & 3. User Marker
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || !userLocation) return;
+    const map = mapRef.current;
+    
+    if (userMarkerRef.current) userMarkerRef.current.remove();
+    
+    const el = document.createElement('div');
+    if (isNavigating) {
+      // Navigation Arrow Pointer
+      const heading = userLocation.heading || 0;
+      el.innerHTML = `<div style="width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:30px solid #3b82f6;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));transform:rotate(${heading}deg);"></div>`;
+    } else {
+      // Standard glowing dot
+      el.innerHTML = `<div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 16px rgba(59,130,246,0.8)"></div>`;
+    }
+
+    userMarkerRef.current = new maplibregl.Marker(el)
+      .setLngLat([userLocation.lon, userLocation.lat])
+      .addTo(map);
+
+  }, [userLocation, mapLoaded, isNavigating]);
+
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
     const map = mapRef.current;

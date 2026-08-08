@@ -19,6 +19,7 @@ export function clearRouteCache(): void {
 interface OSRMManeuver {
   type: string;
   modifier?: string;
+  location: [number, number]; // [lon, lat]
 }
 
 interface OSRMStep {
@@ -71,6 +72,33 @@ export function decodePolyline(encoded: string): [number, number][] {
   return points;
 }
 
+/**
+ * Calculates the Haversine distance in meters between two [lat, lon] coordinates.
+ */
+export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth radius in meters
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Calculates the initial bearing from point A to point B in degrees.
+ */
+export function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const rad = Math.PI / 180;
+  const y = Math.sin((lon2 - lon1) * rad) * Math.cos(lat2 * rad);
+  const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad) -
+            Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos((lon2 - lon1) * rad);
+  const brng = Math.atan2(y, x) * (180 / Math.PI);
+  return (brng + 360) % 360;
+}
+
 // ── Public types ─────────────────────────────────────────────────────────────
 
 export interface RouteStep {
@@ -79,6 +107,7 @@ export interface RouteStep {
   modifier?: string; // left, right, straight, u-turn, etc.
   type?: string;     // turn, new name, depart, arrive, etc.
   name?: string;     // road name
+  location: [number, number]; // [lat, lon]
 }
 
 export interface RouteResult {
@@ -104,6 +133,7 @@ export function parseOSRMRoute(r: OSRMRoute): RouteResult {
     modifier: step.maneuver.modifier,
     type: step.maneuver.type,
     name: step.name || undefined,
+    location: [step.maneuver.location[1], step.maneuver.location[0]], // convert [lon, lat] to [lat, lon]
   })) ?? [];
 
   // Derive a summary from the longest named road segment

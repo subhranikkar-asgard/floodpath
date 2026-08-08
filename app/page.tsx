@@ -51,7 +51,7 @@ export default function Home() {
   const [queryVal,  setQueryVal]  = useState("");
 
   /* Map state */
-  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number; heading?: number | null } | null>(null);
   const [locStatus,    setLocStatus]    = useState<"loading"|"ok"|"denied"|"fallback">("loading");
   const [destination,  setDestination]  = useState<{ lat: number; lon: number; name: string } | null>(null);
   
@@ -70,14 +70,19 @@ export default function Home() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [nextTurnDistance, setNextTurnDistance] = useState<number>(0);
+  const [totalDistanceLeft, setTotalDistanceLeft] = useState<number>(0);
+  const [etaMinutes, setEtaMinutes] = useState<number>(0);
+
   const watchIdRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<any>(null);
 
   /* Active tab on mobile */
   const [tab, setTab] = useState<"map"|"ai">("map");
 
   const resultRef = useRef<HTMLDivElement>(null);
 
-  /* ── Geolocation ─────────────────────────────────────────────────────────── */
+  /* ── Geolocation & Live Progression ──────────────────────────────────────── */
   useEffect(() => {
     // Default Nagpur (Center of India) fallback if GPS fails
     const setFallback = () => {
@@ -88,20 +93,64 @@ export default function Home() {
     if (!navigator.geolocation) { setFallback(); return; }
     
     if (isNavigating) {
-      // High-accuracy live tracking during navigation
+      // 1. Request Screen Wake Lock to prevent screen turning off while driving
+      if ("wakeLock" in navigator) {
+        (navigator as any).wakeLock.request("screen")
+          .then((lock: any) => { wakeLockRef.current = lock; })
+          .catch((err: any) => console.warn("Wake Lock failed:", err));
+      }
+
+      // 2. High-accuracy live tracking
       watchIdRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
-          setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const heading = pos.coords.heading; // might be null on desktop
+          setUserLocation({ lat, lon, heading });
           setLocStatus("ok");
+
+          // Auto-advance turn-by-turn logic
+          if (activeRoute && activeRoute.steps.length > 0) {
+            const { calculateDistance } = await import("@/lib/routing");
+            let nextStep = activeRoute.steps[currentStepIndex];
+            
+            // If we are at the end, do nothing
+            if (!nextStep || currentStepIndex >= activeRoute.steps.length - 1) return;
+
+            // Distance to the NEXT maneuver point
+            const distToTurn = calculateDistance(lat, lon, nextStep.location[0], nextStep.location[1]);
+            setNextTurnDistance(Math.round(distToTurn));
+
+            // If we are within 30 meters of the turn, automatically advance to the next step
+            if (distToTurn < 30) {
+              setCurrentStepIndex(c => Math.min(activeRoute.steps.length - 1, c + 1));
+            }
+
+            // Estimate total distance left by summing remaining steps
+            let remainingMeters = distToTurn;
+            for (let i = currentStepIndex + 1; i < activeRoute.steps.length; i++) {
+              remainingMeters += activeRoute.steps[i].distance;
+            }
+            setTotalDistanceLeft(Math.round(remainingMeters));
+
+            // Estimate ETA based on average speed of 30 km/h (8.33 m/s) in city traffic
+            const estimatedSeconds = remainingMeters / 8.33;
+            setEtaMinutes(Math.max(1, Math.round(estimatedSeconds / 60)));
+          }
         },
         (err) => { console.warn("GPS watch failed:", err.message); setFallback(); },
-        { enableHighAccuracy: false, maximumAge: 5000, timeout: 15000 }
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
       );
     } else {
+      // Release wake lock when navigation ends
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
       // Single snapshot for overview
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading });
           setLocStatus("ok");
         },
         (err) => { console.warn("GPS snapshot failed:", err.message); setFallback(); },
@@ -111,8 +160,9 @@ export default function Home() {
 
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (wakeLockRef.current) wakeLockRef.current.release().catch(() => {});
     };
-  }, [isNavigating]);
+  }, [isNavigating, activeRoute, currentStepIndex]);
 
   /* ── Live Weather ────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -353,7 +403,6 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-              
               {/* Weather Widget */}
               {weather && (
                 <motion.div 
@@ -376,80 +425,97 @@ export default function Home() {
               )}
             </div>
 
-            {/* Active route banner OR Navigation Overlay */}
+            {/* Navigation Overlays */}
             <AnimatePresence>
             {isNavigating && activeRoute && (
-              <motion.div 
-                initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                aria-live="polite" 
-                aria-atomic="true"
-                role="region"
-                aria-label="Turn by Turn Navigation"
-                style={{
-                  position:"absolute", top:"16px", left:"50%", transform:"translateX(-50%)",
-                  width:"90%", maxWidth:"400px", zIndex:1000,
-                  background:"rgba(15,23,42,0.95)", backdropFilter:"blur(24px)",
-                  WebkitBackdropFilter:"blur(24px)",
-                  border:"1px solid rgba(99,102,241,0.5)", borderRadius:"16px",
-                  padding:"16px", boxShadow:"0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)",
-                }}
-              >
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
-                  <span style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>
-                    <Navigation size={14} /> Live Navigation
-                  </span>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button aria-label="Toggle Voice" onClick={() => setVoiceEnabled(v => !v)} style={{
-                      background: voiceEnabled ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.1)",
-                      color: voiceEnabled ? "#86efac" : "#fff",
-                      border: `1px solid ${voiceEnabled ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.2)"}`,
-                      padding:"4px 10px", borderRadius:"100px", fontSize:"10px", fontWeight:700, cursor:"pointer"
-                    }}>
-                      {voiceEnabled ? "🔊 ON" : "🔇 OFF"}
-                    </button>
-                    <button aria-label="End Navigation" onClick={() => setIsNavigating(false)} style={{
-                      background:"rgba(239,68,68,0.15)", color:"#fca5a5", border:"1px solid rgba(239,68,68,0.3)",
-                      padding:"4px 10px", borderRadius:"100px", fontSize:"10px", fontWeight:700, cursor:"pointer"
-                    }}>END</button>
-                  </div>
-                </div>
-                
-                <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
-                  <div aria-hidden="true" style={{ width:"48px", height:"48px", borderRadius:"12px", background:"rgba(99,102,241,0.2)",
-                    border:"1px solid rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:"24px", flexShrink:0 }}>
+              <>
+                {/* TOP INSTRUCTION BANNER */}
+                <motion.div 
+                  initial={{ opacity: 0, y: -50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -50 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  style={{
+                    position:"absolute", top:0, left:0, right:0, zIndex:1000,
+                    background:"#0f172a",
+                    borderBottom:"1px solid rgba(255,255,255,0.1)",
+                    padding:"16px 20px", 
+                    boxShadow:"0 12px 40px rgba(0,0,0,0.6)",
+                    display: "flex", alignItems: "center", gap: "20px"
+                  }}
+                >
+                  <div aria-hidden="true" style={{ width:"60px", height:"60px", borderRadius:"16px", background:"rgba(99,102,241,0.2)",
+                    border:"2px solid rgba(99,102,241,0.5)", display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:"32px", flexShrink:0, color: "#fff" }}>
                     {activeRoute.steps[currentStepIndex]?.modifier?.includes("left") ? "⬅️" :
                      activeRoute.steps[currentStepIndex]?.modifier?.includes("right") ? "➡️" :
                      activeRoute.steps[currentStepIndex]?.type === "arrive" ? "🎯" : "⬆️"}
                   </div>
                   <div style={{ flex:1 }}>
-                    <p style={{ fontSize:"18px", fontWeight:800, color:"#fff", lineHeight:1.2 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                      <span style={{ fontSize:"28px", fontWeight:900, color:"#fff", lineHeight:1 }}>
+                        {nextTurnDistance > 0 ? nextTurnDistance : activeRoute.steps[currentStepIndex]?.distance || 0}
+                      </span>
+                      <span style={{ fontSize:"16px", fontWeight:700, color:"#94a3b8" }}>meters</span>
+                    </div>
+                    <p style={{ fontSize:"20px", fontWeight:700, color:"#e2e8f0", marginTop:"4px", lineHeight:1.2 }}>
                       {activeRoute.steps[currentStepIndex]?.instruction || "Continue"}
                     </p>
-                    <p style={{ fontSize:"14px", color:"#94a3b8", fontWeight:600, marginTop:"4px" }}>
-                      in {activeRoute.steps[currentStepIndex]?.distance || 0}m
-                    </p>
                   </div>
-                </div>
+                </motion.div>
 
-                <div style={{ display:"flex", justifyContent:"space-between", marginTop:"16px", borderTop:"1px solid rgba(255,255,255,0.1)", paddingTop:"12px" }}>
-                  <button 
-                    aria-label="Previous Step"
-                    disabled={currentStepIndex === 0}
-                    onClick={() => setCurrentStepIndex(c => Math.max(0, c - 1))}
-                    style={{ padding:"8px 16px", borderRadius:"8px", background:"rgba(255,255,255,0.1)", color:"#fff", fontSize:"12px", border:"none", cursor:"pointer", opacity: currentStepIndex===0 ? 0.3:1 }}
-                  >← Prev Step</button>
-                  <button 
-                    aria-label="Next Step"
-                    disabled={currentStepIndex >= activeRoute.steps.length - 1}
-                    onClick={() => setCurrentStepIndex(c => Math.min(activeRoute.steps.length - 1, c + 1))}
-                    style={{ padding:"8px 16px", borderRadius:"8px", background:"#4f46e5", color:"#fff", fontSize:"12px", fontWeight:700, border:"none", cursor:"pointer", opacity: currentStepIndex >= activeRoute.steps.length -1 ? 0.3:1 }}
-                  >Next Step →</button>
-                </div>
-              </motion.div>
+                {/* BOTTOM STATUS BANNER */}
+                <motion.div
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 50 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  style={{
+                    position:"absolute", bottom:0, left:0, right:0, zIndex:1000,
+                    background:"rgba(15,23,42,0.95)", backdropFilter:"blur(24px)", WebkitBackdropFilter:"blur(24px)",
+                    borderTop:"1px solid rgba(255,255,255,0.1)",
+                    padding:"20px 24px", paddingBottom:"env(safe-area-inset-bottom, 24px)",
+                    boxShadow:"0 -12px 40px rgba(0,0,0,0.6)",
+                    display: "flex", justifyContent: "space-between", alignItems: "center"
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                      <span style={{ fontSize:"24px", fontWeight:800, color:"#22c55e" }}>
+                        {etaMinutes} min
+                      </span>
+                      <span style={{ fontSize:"16px", fontWeight:600, color:"#94a3b8" }}>
+                        ({(totalDistanceLeft / 1000).toFixed(1)} km)
+                      </span>
+                    </div>
+                    <span style={{ fontSize:"14px", color:"#94a3b8", display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+                      <Navigation size={14} /> Live Navigation
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                    <button aria-label="Toggle Voice" onClick={() => setVoiceEnabled(v => !v)} style={{
+                      width: "48px", height: "48px", borderRadius: "50%",
+                      background: voiceEnabled ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.1)",
+                      color: voiceEnabled ? "#86efac" : "#fff",
+                      border: `1px solid ${voiceEnabled ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.2)"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center", cursor:"pointer", fontSize: "20px"
+                    }}>
+                      {voiceEnabled ? "🔊" : "🔇"}
+                    </button>
+                    <button 
+                      aria-label="Exit Navigation" 
+                      onClick={() => setIsNavigating(false)} 
+                      style={{
+                        background:"#ef4444", color:"#fff", border:"none",
+                        padding:"14px 24px", borderRadius:"100px", fontSize:"16px", fontWeight:800, cursor:"pointer",
+                        boxShadow: "0 4px 12px rgba(239,68,68,0.4)"
+                      }}>
+                      Exit
+                    </button>
+                  </div>
+                </motion.div>
+              </>
             )}
             </AnimatePresence>
           </div>
