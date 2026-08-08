@@ -141,17 +141,12 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
     if (!mapRef.current || !mapLoaded) return;
     const map = mapRef.current;
 
-    // Clear old routes
-    const existingLayers = map.getStyle().layers;
-    if (existingLayers) {
-      existingLayers.forEach((layer: any) => {
-        if (layer.id.startsWith("route-")) map.removeLayer(layer.id);
-      });
+    // Clear old routes using robust checking
+    for (let i = 0; i < 20; i++) {
+      if (map.getLayer(`route-glow-${i}`)) map.removeLayer(`route-glow-${i}`);
+      if (map.getLayer(`route-line-${i}`)) map.removeLayer(`route-line-${i}`);
+      if (map.getSource(`route-source-${i}`)) map.removeSource(`route-source-${i}`);
     }
-    const existingSources = Object.keys(map.getStyle().sources);
-    existingSources.forEach(source => {
-      if (source.startsWith("route-")) map.removeSource(source);
-    });
 
     if (routes.length === 0) return;
 
@@ -191,17 +186,22 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
         });
       }
 
+      const paintProps: any = {
+        "line-color": color,
+        "line-width": isActive ? 6 : 4,
+        "line-opacity": isActive ? 1 : 0.6,
+      };
+      // MapLibre throws an error if line-dasharray has length 1. Solid lines should just omit it.
+      if (!isActive) {
+        paintProps["line-dasharray"] = [2, 2];
+      }
+
       map.addLayer({
         id: `route-line-${idx}`,
         type: "line",
         source: sourceId,
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": color,
-          "line-width": isActive ? 6 : 4,
-          "line-opacity": isActive ? 1 : 0.6,
-          "line-dasharray": isActive ? [1] : [2, 2]
-        }
+        paint: paintProps
       });
     });
 
