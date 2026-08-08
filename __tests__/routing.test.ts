@@ -46,17 +46,17 @@ describe('parseOSRMRoute', () => {
       {
         steps: [
           {
-            maneuver: { type: 'depart', modifier: undefined },
+            maneuver: { location: [88.36, 22.57], type: 'depart', modifier: undefined },
             name: 'Park Street',
             distance: 800,
           },
           {
-            maneuver: { type: 'turn', modifier: 'left' },
+            maneuver: { location: [88.36, 22.57], type: 'turn', modifier: 'left' },
             name: 'Chowringhee Road',
             distance: 4000,
           },
           {
-            maneuver: { type: 'arrive', modifier: undefined },
+            maneuver: { location: [88.36, 22.57], type: 'arrive', modifier: undefined },
             name: '',
             distance: 0,
           },
@@ -84,7 +84,7 @@ describe('parseOSRMRoute', () => {
   it('falls back to "Local roads" when no named steps exist', () => {
     const unnamedRoute = {
       ...mockRoute,
-      legs: [{ steps: [{ maneuver: { type: 'depart' }, name: '', distance: 100 }] }],
+      legs: [{ steps: [{ maneuver: { location: [88.36, 22.57], type: 'depart' }, name: '', distance: 100 }] }],
     };
     const result = parseOSRMRoute(unnamedRoute);
     expect(result.summary).toBe('Local roads');
@@ -125,13 +125,13 @@ describe('fetchAlternativeRoutes', () => {
         geometry: '_p~iF~ps|U',
         duration: 900,
         distance: 5000,
-        legs: [{ steps: [{ maneuver: { type: 'depart' }, name: 'MG Road', distance: 5000 }] }],
+        legs: [{ steps: [{ maneuver: { location: [88.36, 22.57], type: 'depart' }, name: 'MG Road', distance: 5000 }] }],
       },
       {
         geometry: '_p~iF~ps|U_ulLnnqC',
         duration: 1200,
         distance: 6500,
-        legs: [{ steps: [{ maneuver: { type: 'depart' }, name: 'AJC Bose Road', distance: 6500 }] }],
+        legs: [{ steps: [{ maneuver: { location: [88.36, 22.57], type: 'depart' }, name: 'AJC Bose Road', distance: 6500 }] }],
       },
     ],
   };
