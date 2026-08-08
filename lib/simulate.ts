@@ -38,9 +38,10 @@ function detectIntent(query: string): "route" | "area_lookup" | "unclear" {
 
 // ── Detect origin / destination from route queries ─────────────────────────────
 function extractRoutePoints(query: string): { origin: string | null; destination: string | null } {
-  const q = query.toLowerCase();
-  const fromMatch = q.match(/from\s+([a-z\s]+?)(?:\s+to|\s+via|$)/i);
-  const toMatch   = q.match(/to\s+([a-z\s]+?)(?:\s+via|\s+through|this|today|right now|$)/i);
+  // Strip punctuation that could break the regex, keeping alphanumeric and spaces
+  const cleanQ = query.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ');
+  const fromMatch = cleanQ.match(/from\s+(.+?)\s+to\s+/i);
+  const toMatch   = cleanQ.match(/to\s+(.+?)(?:\s+via|\s+through|\s+safe|\s+today|\s+now|$)/i);
 
   return {
     origin:      fromMatch ? fromMatch[1].trim() : null,
@@ -184,6 +185,22 @@ export function simulateAssessment(query: string, zones: FloodZone[]): Assessmen
       alternative_suggestion: null,
       confidence: "low",
       clarifying_question: "Which route would you like to check?",
+      disclaimer: STANDARD_DISCLAIMER,
+    };
+  }
+
+  if (intent === "area_lookup") {
+    return {
+      intent,
+      origin: query,
+      destination: null,
+      waypoints: [],
+      overall_risk_level: "Unknown",
+      location_breakdown: [],
+      rationale: `Assessing live flood risk for area: "${query}". (Map navigation will only trigger if you specify both an origin and destination.)`,
+      alternative_suggestion: null,
+      confidence: "high",
+      clarifying_question: null,
       disclaimer: STANDARD_DISCLAIMER,
     };
   }
