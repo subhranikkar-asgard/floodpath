@@ -77,9 +77,9 @@ export default function Home() {
 
   /* ── Geolocation ─────────────────────────────────────────────────────────── */
   useEffect(() => {
-    // Default Kolkata fallback if GPS fails (e.g., desktop without GPS or denied permission)
+    // Default Nagpur (Center of India) fallback if GPS fails
     const setFallback = () => {
-      setUserLocation({ lat: 22.5726, lon: 88.3639 }); // Central Kolkata (Esplanade)
+      setUserLocation({ lat: 21.1458, lon: 79.0882 }); 
       setLocStatus("fallback");
     };
 
@@ -115,8 +115,9 @@ export default function Home() {
   /* ── Live Weather ────────────────────────────────────────────────────────── */
   useEffect(() => {
     async function fetchWeather() {
+      if (!userLocation) return;
       try {
-        const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=22.5726&longitude=88.3639&current=precipitation,weather_code&timezone=Asia%2FKolkata");
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${userLocation.lat}&longitude=${userLocation.lon}&current=precipitation,weather_code`);
         const data = await res.json();
         if (data && data.current) {
           setWeather({ precip: data.current.precipitation, code: data.current.weather_code });
@@ -124,7 +125,7 @@ export default function Home() {
       } catch (e) { console.error("Weather fetch failed", e); }
     }
     fetchWeather();
-  }, []);
+  }, [userLocation?.lat, userLocation?.lon]);
 
   /* ── Voice Navigation ────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -338,7 +339,7 @@ export default function Home() {
                 <div style={{ marginTop:"16px", padding:"12px", background:"rgba(14,165,233,0.1)", borderRadius:"12px", border:"1px solid rgba(14,165,233,0.2)" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px" }}>
                     <span style={{ fontSize:"16px" }}>{weather.precip > 0 ? "🌧️" : "⛅"}</span>
-                    <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>Live Weather (Kolkata)</span>
+                    <span style={{ fontSize:"11px", fontWeight:700, color:"#38bdf8", textTransform:"uppercase", letterSpacing:"0.05em" }}>Live Local Weather</span>
                   </div>
                   <p style={{ fontSize:"12px", color:"#e0f2fe", margin:0 }}>
                     Precipitation: <strong style={{ color: weather.precip > 5 ? "#ef4444" : "#f8fafc" }}>{weather.precip} mm</strong>

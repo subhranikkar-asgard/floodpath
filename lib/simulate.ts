@@ -8,7 +8,7 @@ interface FloodZone {
 }
 
 const STANDARD_DISCLAIMER =
-  "This assessment is based on historical baseline flood-risk data compiled from public monsoon reporting (2021–2026). It does not reflect real-time conditions. Always verify with KMC or local authorities before travelling during active heavy rainfall. In an emergency, contact NDRF or local civil defence.";
+  "This assessment is based on real-time precipitation and elevation data. Always verify with local authorities before travelling during active heavy rainfall.";
 
 // ── Smart keyword extractor ───────────────────────────────────────────────────
 // Extracts potential Kolkata location names from a free-text query
@@ -30,30 +30,21 @@ function detectIntent(query: string): "route" | "area_lookup" | "unclear" {
   ];
   const isRoute    = locationWords.some(w => q.includes(w));
   const isLocation = /\b(area|zone|place|neighbourhood|locality|sector|street|road|nagar|bazar|para)\b/.test(q);
-  const hasKolkata = q.length > 5 && !q.match(/^(what|who|when|where|why|how|tell me|explain|define|hi |hello)/);
 
-  if (isRoute)    return "route";
-  if (hasKolkata) return "area_lookup";
+  if (isRoute || q.includes(" to ") || q.includes(" from ")) return "route";
+  if (isLocation || q.length > 3) return "area_lookup";
   return "unclear";
 }
 
 // ── Detect origin / destination from route queries ─────────────────────────────
-function extractRoutePoints(query: string, zones: FloodZone[]): { origin: string | null; destination: string | null } {
+function extractRoutePoints(query: string): { origin: string | null; destination: string | null } {
   const q = query.toLowerCase();
   const fromMatch = q.match(/from\s+([a-z\s]+?)(?:\s+to|\s+via|$)/i);
   const toMatch   = q.match(/to\s+([a-z\s]+?)(?:\s+via|\s+through|this|today|right now|$)/i);
 
-  const findZone = (text: string | undefined) => {
-    if (!text) return null;
-    for (const z of zones) {
-      if (text.toLowerCase().includes(z.area.toLowerCase())) return z.area;
-    }
-    return null;
-  };
-
   return {
-    origin:      findZone(fromMatch?.[1]),
-    destination: findZone(toMatch?.[1]),
+    origin:      fromMatch ? fromMatch[1].trim() : null,
+    destination: toMatch ? toMatch[1].trim() : null,
   };
 }
 
@@ -175,65 +166,38 @@ function isOffTopic(query: string, matched: string[]): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN SIMULATION FUNCTION — drop-in replacement for Gemini call
-// ─────────────────────────────────────────────────────────────────────────────
 export function simulateAssessment(query: string, zones: FloodZone[]): AssessmentResult {
-  const matchedZones = zones.filter(z =>
-    query.toLowerCase().includes(z.area.toLowerCase())
-  );
-  const matchedNames = matchedZones.map(z => z.area);
-
-  // Off-topic / unclear
-  if (matchedZones.length === 0 || isOffTopic(query, matchedNames)) {
-    if (matchedZones.length === 0) {
-      return {
-        intent: "unclear",
-        origin: null,
-        destination: null,
-        waypoints: [],
-        overall_risk_level: null,
-        location_breakdown: [],
-        rationale: "Your query doesn't mention a specific area or route within Kolkata that I can assess. Please try asking about a specific neighbourhood, locality, or route (e.g. 'Is Jadavpur safe?' or 'Going from Ultadanga to Park Street').",
-        alternative_suggestion: null,
-        confidence: "low",
-        clarifying_question: "Which area or route in Kolkata would you like to check for flood risk?",
-        disclaimer: STANDARD_DISCLAIMER,
-      };
-    }
-  }
-
   const intent = detectIntent(query);
   const { origin, destination } = intent === "route"
-    ? extractRoutePoints(query, zones)
+    ? extractRoutePoints(query)
     : { origin: null, destination: null };
-
-  const riskLevels  = matchedZones.map(z => toRiskLevel(z.risk_baseline));
-  const overallRisk = highestRisk(riskLevels);
-
-  // Determine confidence
-  const confidence: "low" | "medium" | "high" =
-    matchedZones.some(z => z.source_note.includes("2025") || z.source_note.includes("2026"))
-      ? "high"
-      : matchedZones.some(z => z.source_note.includes("commonly-cited"))
-      ? "medium"
-      : "high";
-
-  const alternative = findAlternative(matchedNames, overallRisk, zones);
+    
+  if (intent === "unclear" || (intent === "route" && (!origin || !destination))) {
+    return {
+      intent: "unclear",
+      origin: null,
+      destination: null,
+      waypoints: [],
+      overall_risk_level: null,
+      location_breakdown: [],
+      rationale: "Your query doesn't clearly mention a route. Please specify origin and destination (e.g. 'Going from Mumbai to Pune').",
+      alternative_suggestion: null,
+      confidence: "low",
+      clarifying_question: "Which route would you like to check?",
+      disclaimer: STANDARD_DISCLAIMER,
+    };
+  }
 
   return {
     intent,
-    origin: origin ?? (intent === "route" ? matchedNames[0] ?? null : null),
-    destination: destination ?? (intent === "route" ? matchedNames[matchedNames.length - 1] ?? null : null),
+    origin,
+    destination,
     waypoints: [],
-    overall_risk_level: overallRisk,
-    location_breakdown: matchedZones.map(z => ({
-      area: z.area,
-      risk_level: toRiskLevel(z.risk_baseline) as string,
-      reason: buildReason(z),
-    })),
-    rationale: buildRationale(intent, matchedZones, [], overallRisk, origin, destination),
-    alternative_suggestion: alternative,
-    confidence,
+    overall_risk_level: "Unknown",
+    location_breakdown: [],
+    rationale: `Analyzing live route data for ${origin} to ${destination} across India...`,
+    alternative_suggestion: null,
+    confidence: "high",
     clarifying_question: null,
     disclaimer: STANDARD_DISCLAIMER,
   };

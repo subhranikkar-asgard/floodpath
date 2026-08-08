@@ -158,7 +158,7 @@ export async function fetchAlternativeRoutes(
 
   const parsedRoutes = json.routes.map(parseOSRMRoute);
 
-  // Fetch elevation data for routes
+  // Fetch elevation and precipitation data for routes to calculate dynamic Pan-India risk
   try {
     // Sample a few points from each route to avoid URI too long errors
     const allSampledPoints = parsedRoutes.flatMap(route => {
@@ -169,23 +169,52 @@ export async function fetchAlternativeRoutes(
     if (allSampledPoints.length > 0) {
       const lats = allSampledPoints.map(p => p[0].toFixed(4)).join(",");
       const lons = allSampledPoints.map(p => p[1].toFixed(4)).join(",");
-      const elevRes = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`);
       
-      if (elevRes.ok) {
+      // Fetch elevation
+      const elevRes = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`);
+      // Fetch precipitation (current)
+      const precipRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=precipitation`);
+      
+      if (elevRes.ok && precipRes.ok) {
         const elevData = await elevRes.json();
+        const precipData = await precipRes.json();
+        
         if (elevData.elevation && elevData.elevation.length === allSampledPoints.length) {
           let globalIndex = 0;
-          parsedRoutes.forEach(route => {
+          parsedRoutes.forEach((route, rIndex) => {
             const numSamples = Math.floor(route.coords.length / Math.max(1, Math.floor(route.coords.length / 10))) + (route.coords.length % Math.max(1, Math.floor(route.coords.length / 10)) === 0 ? 0 : 1);
+            
             const routeElevations = elevData.elevation.slice(globalIndex, globalIndex + numSamples);
+            // Open-Meteo returns array of responses when querying multiple coordinates for forecast
+            let hasRiskySegment = false;
+            
+            for (let i = 0; i < numSamples; i++) {
+               const elev = routeElevations[i];
+               // Precipitation data structure for multiple points is an array of objects
+               const precip = precipData[globalIndex + i]?.current?.precipitation || 0;
+               
+               // Dynamic Risk Algorithm: Low elevation (< 10m) + Heavy rain (> 2mm)
+               if (elev < 10 && precip > 2) {
+                 hasRiskySegment = true;
+               }
+            }
+            
             globalIndex += numSamples;
             route.lowestElevation = Math.min(...routeElevations);
+            
+            // Override route color based on dynamic risk
+            if (hasRiskySegment) {
+              route.color = "#ef4444"; // Risky red
+              route.summary += " (⚠️ High Waterlogging Risk Detected)";
+            } else {
+              route.color = "#22c55e"; // Safe green
+            }
           });
         }
       }
     }
   } catch (e) {
-    console.error("Failed to fetch elevation data", e);
+    console.error("Failed to fetch dynamic risk data", e);
   }
 
   routeCache.set(cacheKey, parsedRoutes);
@@ -200,7 +229,7 @@ export async function fetchAlternativeRoutes(
  * @returns Array of matching locations with name, lat, lon.
  */
 export async function searchPlace(query: string): Promise<{ name: string; lat: number; lon: number }[]> {
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query + " Kolkata")}&viewbox=88.1,22.3,88.6,22.9&bounded=0&limit=5`;
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&countrycodes=in&limit=5`;
   const res = await fetch(url, { headers: { "Accept-Language": "en" } });
   const json: NominatimResult[] = await res.json();
   return json.map(r => ({

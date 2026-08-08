@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { RouteResult } from "@/lib/routing";
 import { kolkataFloodZones, RISK_COLORS } from "@/data/flood_zones_geo";
+import { supabase } from "@/lib/supabase";
 
 interface Props {
   userLocation: { lat: number; lon: number } | null;
@@ -24,8 +25,22 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
   const [reports, setReports] = useState<{lat: number, lon: number, id: number}[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("flood_reports");
-    if (saved) setReports(JSON.parse(saved));
+    async function loadReports() {
+      const { data, error } = await supabase.from("flood_reports").select("*");
+      if (!error && data) {
+        setReports(data.map(d => ({ id: d.id, lat: d.lat, lon: d.lon })));
+      }
+    }
+    loadReports();
+
+    // Optionally set up real-time subscription here
+    const channel = supabase.channel("public:flood_reports")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "flood_reports" }, (payload) => {
+        setReports(prev => [...prev, payload.new as any]);
+      })
+      .subscribe();
+      
+    return () => { supabase.removeChannel(channel); }
   }, []);
 
   useEffect(() => {
@@ -57,24 +72,7 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
 
         L.control.zoom({ position: "bottomright" }).addTo(mapRef.current);
 
-        // Draw flood zones
-        kolkataFloodZones.features.forEach((feature) => {
-          const rl  = feature.properties.riskLevel as keyof typeof RISK_COLORS;
-          const col = RISK_COLORS[rl] ?? RISK_COLORS.low;
-
-          const poly = L.geoJSON(feature as GeoJSON.Feature, {
-            style: {
-              color:       col.stroke,
-              fillColor:   col.fill,
-              fillOpacity: 0.28,
-              weight:      1.5,
-            },
-          })
-          .bindPopup(`<b>${feature.properties.name}</b><br/><span style="color:${col.fill}">${col.label}</span>`)
-          .addTo(mapRef.current!);
-
-          (layersRef.current as unknown[]).push(poly);
-        });
+        // Removed static Kolkata flood zones for Pan-India scale
       }
 
       const map = mapRef.current;
@@ -220,13 +218,16 @@ export default function FloodMap({ userLocation, destination, routes = [], activ
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
-    const onClick = (e: any) => {
+    const onClick = async (e: any) => {
       if (!reportMode) return;
-      const newReport = { lat: e.latlng.lat, lon: e.latlng.lng, id: Date.now() };
-      const updated = [...reports, newReport];
-      setReports(updated);
-      localStorage.setItem("flood_reports", JSON.stringify(updated));
-      setReportMode(false); // turn off after 1 click
+      setReportMode(false); // turn off UI immediately for feedback
+      
+      const newReport = { lat: e.latlng.lat, lon: e.latlng.lng };
+      // Optimistic update
+      setReports(prev => [...prev, { ...newReport, id: Date.now() }]);
+      
+      // Persist to Supabase
+      await supabase.from("flood_reports").insert(newReport);
     };
     map.on('click', onClick);
     return () => { map.off('click', onClick); };
